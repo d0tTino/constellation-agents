@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - '**/*.py'
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - '.github/workflows/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Poetry and Ruff
+        run: pip install poetry ruff
+      - name: Install dependencies
+        run: |
+          if [ -f pyproject.toml ]; then
+            poetry install --no-interaction --no-root
+          fi
+      - name: Check for code changes
+        id: changes
+        run: |
+          git fetch --depth=1 origin ${{ github.event.before }} || true
+          diff=$(git diff ${{ github.event.before }} ${{ github.sha }} -- '*.py' | grep -E '^[-+]\s*[^#[:space:]]' || true)
+          if [ -n "$diff" ]; then
+            echo "code_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run Ruff
+        if: steps.changes.outputs.code_changed == 'true'
+        run: |
+          if [ -f pyproject.toml ]; then
+            poetry run ruff .
+          else
+            ruff check .
+          fi
+      - name: Run Pytest
+        if: steps.changes.outputs.code_changed == 'true'
+        run: |
+          if [ -f pyproject.toml ]; then
+            poetry run pytest
+          else
+            echo 'No pyproject.toml; skipping tests.'
+          fi

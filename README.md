@@ -1,16 +1,11 @@
-# Constellation Agents
+# constellation-agents
 
-This repository contains the workspace for various agent packages.
+This repository manages code for constellation agents.
 
-## Environment setup
+## Continuous Integration
 
-1. Install Python 3.11.
-2. Create and activate a virtual environment:
-   ```bash
-   python3.11 -m venv .venv
-   source .venv/bin/activate
-   ```
-3. Install dependencies using `poetry`:
-   ```bash
-   poetry install
-   ```
+GitHub Actions runs Ruff and Pytest on pushes that modify Python source files.
+Tests and linting only trigger when code changes occur—documentation updates
+or comment-only edits are ignored. If `pyproject.toml` is missing, Ruff runs
+directly and tests are skipped.
+
