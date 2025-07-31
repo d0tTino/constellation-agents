@@ -9,8 +9,7 @@ package-mode = false
 
 [tool.poetry.workspace]
 packages = [
-    {include = "agents.core"},
-    {include = "agents.experimental"},
+    {include = "agents"},
 ]
 
 [tool.poetry.group.dev.dependencies]
