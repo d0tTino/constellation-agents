@@ -1,0 +1,46 @@
+from unittest.mock import MagicMock, patch
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import agents.sdk as sdk
+
+
+def test_emit_event_uses_kafka_producer():
+    with patch("agents.sdk.KafkaProducer") as mock_producer_cls:
+        mock_producer = MagicMock()
+        mock_producer_cls.return_value = mock_producer
+        sdk.emit_event("topic", {"a": 1})
+        mock_producer.send.assert_called_once()
+        mock_producer.flush.assert_called_once()
+        mock_producer.close.assert_called_once()
+
+
+def test_ume_query_posts_and_returns_json():
+    with patch("agents.sdk.requests.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"result": 1}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+        assert sdk.ume_query("http://example", {"q": 1}) == {"result": 1}
+        mock_post.assert_called_once()
+
+
+def test_base_agent_dispatches_messages():
+    with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
+         patch("agents.sdk.base.KafkaProducer"):
+        mock_consumer = MagicMock()
+        mock_consumer_cls.return_value = mock_consumer
+        mock_consumer.__iter__.return_value = iter([MagicMock(value={"x": 1})])
+
+        class TestAgent(sdk.BaseAgent):
+            def __init__(self):
+                super().__init__("topic")
+                self.events = []
+
+            def handle_event(self, event):
+                self.events.append(event)
+
+        agent = TestAgent()
+        agent.run()
+        assert agent.events == [{"x": 1}]
