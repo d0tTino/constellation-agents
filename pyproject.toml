@@ -1,0 +1,17 @@
+[project]
+name = "constellation-agents"
+version = "0.1.0"
+description = "Workspace for constellation agents"
+requires-python = ">=3.11"
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.workspace]
+packages = [
+    {include = "agents.core"},
+    {include = "agents.experimental"},
+]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
