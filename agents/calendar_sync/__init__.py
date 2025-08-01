@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import requests
@@ -21,6 +24,8 @@ class CalendarSync(BaseAgent):
             group_id="calendar-sync",
         )
         self.cal_endpoint = cal_endpoint
+        self._webhook_server: ThreadingHTTPServer | None = None
+        self._webhook_thread: threading.Thread | None = None
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
         """Handle appointment updates from UME."""
@@ -52,11 +57,49 @@ class CalendarSync(BaseAgent):
         )
         logger.info("Emitted TaskReschedule for %s", appointment_id)
 
+    def start_webhook_server(self, host: str = "0.0.0.0", port: int = 8001) -> None:
+        """Start an HTTP server to receive Cal.com webhooks."""
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(handler: BaseHTTPRequestHandler) -> None:  # type: ignore[override]
+                length = int(handler.headers.get("Content-Length", "0"))
+                data = handler.rfile.read(length)
+                try:
+                    payload = json.loads(data.decode("utf-8"))
+                except Exception:  # pragma: no cover - malformed body
+                    handler.send_response(400)
+                    handler.end_headers()
+                    return
+                self.handle_cal_event(payload)
+                handler.send_response(200)
+                handler.end_headers()
+
+            def log_message(self, format: str, *args: Any) -> None:  # pragma: no cover - quiet
+                return
+
+        self._webhook_server = ThreadingHTTPServer((host, port), Handler)
+        self._webhook_thread = threading.Thread(
+            target=self._webhook_server.serve_forever, daemon=True
+        )
+        self._webhook_thread.start()
+
+    def stop_webhook_server(self) -> None:
+        """Stop the webhook HTTP server if running."""
+        if self._webhook_server:
+            self._webhook_server.shutdown()
+            self._webhook_server.server_close()
+        if self._webhook_thread:
+            self._webhook_thread.join()
+
 
 async def main() -> None:
     """Entry point for running ``CalendarSync`` asynchronously."""
     agent = CalendarSync(cal_endpoint="http://localhost/api/cal")
-    await asyncio.to_thread(agent.run)
+    agent.start_webhook_server()
+    try:
+        await asyncio.to_thread(agent.run)
+    finally:
+        agent.stop_webhook_server()
 
 
 __all__ = ["CalendarSync", "main"]
