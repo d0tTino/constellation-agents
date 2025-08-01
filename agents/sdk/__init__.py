@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 from kafka import KafkaProducer
@@ -38,9 +39,25 @@ def emit_event(
 
 
 def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Send a query to a UME endpoint and return the JSON response."""
+    """Send a query to a UME endpoint and return the JSON response.
+
+    If the environment variable ``OPA_SIDECAR_URL`` is set, the request is
+    routed through that URL with the original endpoint and payload included in
+    the JSON body.
+    """
+
     logger.debug("Querying UME at %s with payload %s", endpoint, payload)
-    response = requests.post(endpoint, json=payload, timeout=10)
+
+    sidecar = os.getenv("OPA_SIDECAR_URL")
+    if sidecar:
+        logger.debug("Routing request through OPA sidecar %s", sidecar)
+        url = sidecar
+        data = {"url": endpoint, "payload": payload}
+    else:
+        url = endpoint
+        data = payload
+
+    response = requests.post(url, json=data, timeout=10)
     response.raise_for_status()
     return response.json()
 
