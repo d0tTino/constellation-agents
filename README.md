@@ -23,3 +23,10 @@ value = cfg.get("some_key")
 ```
 
 Sending `SIGHUP` causes `cfg` to reload the file at runtime.
+
+## FinRL Strategist
+
+The package `agents.finrl_strategist` integrates the [FinRL](https://github.com/AI4Finance-Foundation/FinRL) framework.
+It exposes a `FinRLStrategist` class that executes a 30‑day back‑test using a DRL policy. The strategists only run
+on Mondays via the `run_weekly` method, which loads the latest 30 days of market data and trains a PPO model before
+producing predictions.
