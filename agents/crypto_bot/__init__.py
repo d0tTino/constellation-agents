@@ -75,4 +75,4 @@ class CryptoBot:
         # After execution publish basic metrics.
         positions = getattr(self.engine, "positions", [])
         profit = getattr(self.engine, "profit", 0.0)
-        emit_event("PositionUpdate", {"positions": positions, "profit": profit})
+        emit_event("TradeSummary", {"positions": positions, "profit": profit})

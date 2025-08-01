@@ -64,6 +64,30 @@ def test_run_emits_metrics(tmp_path):
         bot.run()
         engine.run.assert_called_once()
         emit.assert_called_once_with(
-            "PositionUpdate",
+            "TradeSummary",
+            {"positions": engine.positions, "profit": engine.profit},
+        )
+
+
+def test_run_emits_metrics_when_start_used(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    engine = MagicMock(spec=["start", "positions", "profit"])
+    engine.start = MagicMock()
+    engine.positions = ["pos1"]
+    engine.profit = 2.34
+
+    bot = CryptoBot(Config(cfg_file))
+    bot.engine = engine
+    with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(bot, "init_engine"), patch(
+        "agents.crypto_bot.emit_event"
+    ) as emit:
+        bot.run()
+        engine.start.assert_called_once()
+        emit.assert_called_once_with(
+            "TradeSummary",
             {"positions": engine.positions, "profit": engine.profit},
         )
