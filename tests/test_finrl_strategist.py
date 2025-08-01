@@ -29,3 +29,8 @@ def test_run_weekly_emits_signals():
         assert mock_producer.send.call_count == 2
         assert mock_producer.flush.call_count == 2
         assert mock_producer.close.call_count == 2
+        calls = [
+            (("BuySignal", {"ticker": "SPY"}),),
+            (("SellSignal", {"ticker": "AAPL"}),),
+        ]
+        assert mock_producer.send.call_args_list == calls
