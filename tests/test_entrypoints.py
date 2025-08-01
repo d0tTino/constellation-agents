@@ -46,3 +46,25 @@ def test_finrl_strategist_entrypoint() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_eureka_watcher_entrypoint(tmp_path: Path) -> None:
+    (tmp_path / "kafka").mkdir()
+    (tmp_path / "kafka" / "__init__.py").write_text(
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        class M:\n            def __init__(self,v):\n                self.value=v\n        yield M({'id':'i','vector':[1,0]})\n" "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n"
+    )
+    (tmp_path / "requests").mkdir()
+    (tmp_path / "requests" / "__init__.py").write_text(
+        "def post(*a,**k):\n    class R:\n        def raise_for_status(self):\n            pass\n        def json(self):\n            return {'docs':[{'id':'d','vector':[1,0]}]}\n    return R()\n"
+    )
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
+    result = subprocess.run(
+        [sys.executable, "-m", "agents.eureka_watcher"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
