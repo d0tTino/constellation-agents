@@ -45,3 +45,25 @@ def test_init_engine_uses_freqtrade_modules(tmp_path):
         bot.strategy = {"exchange": "binance"}
         bot.init_engine()
         assert bot.engine is fake_worker_module.Worker.return_value
+
+
+def test_run_emits_metrics(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    bot = CryptoBot(Config(cfg_file))
+    engine = MagicMock()
+    engine.positions = ["pos1"]
+    engine.profit = 1.23
+    bot.engine = engine
+    with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(bot, "init_engine"), patch(
+        "agents.crypto_bot.emit_event"
+    ) as emit:
+        bot.run()
+        engine.run.assert_called_once()
+        emit.assert_called_once_with(
+            "PositionUpdate",
+            {"positions": engine.positions, "profit": engine.profit},
+        )

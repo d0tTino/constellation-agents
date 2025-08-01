@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import Config
+from ..sdk import emit_event
 
 logger = logging.getLogger(__name__)
 
@@ -61,3 +62,17 @@ class CryptoBot:
         self.load_strategy()
         self.connect_exchange()
         self.init_engine()
+        if not self.engine:
+            raise RuntimeError("Engine failed to initialize")
+
+        # Execute the Freqtrade engine. ``Worker`` may expose ``run`` or
+        # ``start`` depending on the installed version. Call whichever exists.
+        if hasattr(self.engine, "run"):
+            self.engine.run()
+        elif hasattr(self.engine, "start"):
+            self.engine.start()
+
+        # After execution publish basic metrics.
+        positions = getattr(self.engine, "positions", [])
+        profit = getattr(self.engine, "profit", 0.0)
+        emit_event("PositionUpdate", {"positions": positions, "profit": profit})

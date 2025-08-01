@@ -24,6 +24,10 @@ def test_crypto_bot_entrypoint(tmp_path: Path) -> None:
     (tmp_path / "freqtrade" / "configuration.py").write_text(
         "class Configuration:\n    def __init__(self, *a):\n        pass\n    def get_config(self):\n        return {}\n"
     )
+    (tmp_path / "kafka").mkdir()
+    (tmp_path / "kafka" / "__init__.py").write_text(
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\nclass KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
+    )
 
     env = os.environ.copy()
     repo_root = Path(__file__).resolve().parents[1]
