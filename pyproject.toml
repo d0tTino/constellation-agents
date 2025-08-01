@@ -6,20 +6,15 @@ requires-python = ">=3.11"
 
 [tool.poetry]
 package-mode = false
+packages = [{include = "agents"}]
 
 [tool.poetry.dependencies]
 python = ">=3.11"
 kafka-python = "*"
 requests = "*"
 prometheus-client = "*"
-PyYAML = "*"
+pyyaml = "*"
 ccxt = "*"
-freqtrade = {version = "*", optional = true}
-
-[tool.poetry.workspace]
-packages = [
-    {include = "agents"},
-]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
