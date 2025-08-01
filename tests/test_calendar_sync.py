@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 import sys
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -34,3 +35,19 @@ def test_handle_cal_event_emits_task_reschedule():
         "ume.events.task.reschedule",
         {"id": "2", "time": "t"},
     )
+
+
+def test_webhook_server_processes_post():
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarSync("http://api")
+
+    agent.start_webhook_server(host="127.0.0.1", port=0)
+    try:
+        with patch.object(agent, "handle_cal_event") as mock_handle:
+            url = f"http://{agent._webhook_server.server_address[0]}:{agent._webhook_server.server_port}"
+            requests.post(url, json={"id": "3", "time": "t"})
+            mock_handle.assert_called_once_with({"id": "3", "time": "t"})
+    finally:
+        agent.stop_webhook_server()
