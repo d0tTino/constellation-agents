@@ -2,11 +2,25 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
+
+from prometheus_client import Counter, Histogram, start_http_server
 
 from kafka import KafkaConsumer, KafkaProducer
 
 logger = logging.getLogger(__name__)
+
+MESSAGE_COUNTER = Counter(
+    "agent_messages_total",
+    "Total number of processed messages",
+    ["agent"],
+)
+PROCESSING_TIME = Histogram(
+    "agent_processing_seconds",
+    "Time spent processing a message",
+    ["agent"],
+)
 
 
 class BaseAgent:
@@ -18,6 +32,7 @@ class BaseAgent:
         *,
         bootstrap_servers: str = "localhost:9092",
         group_id: str | None = None,
+        metrics_port: int | None = 8000,
     ) -> None:
         self.topic = topic
         self.consumer = KafkaConsumer(
@@ -30,6 +45,9 @@ class BaseAgent:
             bootstrap_servers=bootstrap_servers,
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         )
+        self._labels = {"agent": self.__class__.__name__}
+        if metrics_port is not None:
+            start_http_server(metrics_port)
 
     def emit(self, topic: str, event: dict[str, Any]) -> None:
         """Emit an event to a Kafka topic."""
@@ -40,7 +58,11 @@ class BaseAgent:
     def dispatch(self, event: dict[str, Any]) -> None:
         """Dispatch an event to the handler."""
         logger.debug("Dispatching event: %s", event)
+        start = time.monotonic()
         self.handle_event(event)
+        duration = time.monotonic() - start
+        MESSAGE_COUNTER.labels(**self._labels).inc()
+        PROCESSING_TIME.labels(**self._labels).observe(duration)
 
     def handle_event(self, event: dict[str, Any]) -> None:
         """Handle an event from the subscribed topic. Override in subclasses."""

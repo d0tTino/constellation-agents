@@ -57,6 +57,11 @@ def test_eureka_watcher_entrypoint(tmp_path: Path) -> None:
     (tmp_path / "requests" / "__init__.py").write_text(
         "def post(*a,**k):\n    class R:\n        def raise_for_status(self):\n            pass\n        def json(self):\n            return {'docs':[{'id':'d','vector':[1,0]}]}\n    return R()\n"
     )
+    # Stub prometheus_client to avoid starting an HTTP server
+    (tmp_path / "prometheus_client").mkdir()
+    (tmp_path / "prometheus_client" / "__init__.py").write_text(
+        "def start_http_server(*a, **k):\n    pass\nclass Counter:\n    def __init__(self,*a,**k):\n        pass\n    def labels(self, **k):\n        class L:\n            def inc(self,*a,**k):\n                pass\n        return L()\nclass Histogram:\n    def __init__(self,*a,**k):\n        pass\n    def labels(self, **k):\n        class L:\n            def observe(self,*a,**k):\n                pass\n        return L()\n"
+    )
     env = os.environ.copy()
     repo_root = Path(__file__).resolve().parents[1]
     env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
