@@ -16,7 +16,6 @@ prometheus-client = "*"
 pyyaml = "*"
 ccxt = "*"
 
-
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 
@@ -24,3 +23,6 @@ pytest = "*"
 crypto-bot = "agents.crypto_bot.__main__:main"
 finrl-strategist = "agents.finrl_strategist.__main__:main"
 eureka-watcher = "agents.eureka_watcher.__main__:main"
+
+[tool.poetry.extras]
+freqtrade = ["freqtrade"]
