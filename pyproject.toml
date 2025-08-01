@@ -23,3 +23,4 @@ pytest = "*"
 [tool.poetry.scripts]
 crypto-bot = "agents.crypto_bot.__main__:main"
 finrl-strategist = "agents.finrl_strategist.__main__:main"
+eureka-watcher = "agents.eureka_watcher.__main__:main"
