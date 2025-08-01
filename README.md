@@ -30,3 +30,21 @@ The package `agents.finrl_strategist` integrates the [FinRL](https://github.com/
 It exposes a `FinRLStrategist` class that executes a 30‑day back‑test using a DRL policy. The strategists only run
 on Mondays via the `run_weekly` method, which loads the latest 30 days of market data and trains a PPO model before
 producing predictions.
+
+## Docker Images
+
+Each agent directory contains a `Dockerfile` for containerized execution. Build the images from the repository root:
+
+```bash
+docker build -t finance-advisor -f agents/finance_advisor/Dockerfile .
+docker build -t crypto-bot -f agents/crypto_bot/Dockerfile .
+docker build -t finrl-strategist -f agents/finrl_strategist/Dockerfile .
+```
+
+Run the containers with:
+
+```bash
+docker run --rm finance-advisor
+docker run --rm crypto-bot
+docker run --rm finrl-strategist
+```
