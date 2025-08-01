@@ -20,6 +20,7 @@ def test_watcher_emits_for_similar_doc() -> None:
     with patch("agents.eureka_watcher.ume_query", return_value=docs), \
          patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"), \
          patch.object(EurekaWatcher, "emit") as mock_emit:
         watcher = EurekaWatcher("http://example")
         watcher.handle_event(event)
