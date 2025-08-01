@@ -19,3 +19,7 @@ packages = [
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
+
+[tool.poetry.scripts]
+crypto-bot = "agents.crypto_bot.__main__:main"
+finrl-strategist = "agents.finrl_strategist.__main__:main"

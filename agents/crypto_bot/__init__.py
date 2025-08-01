@@ -4,10 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import ccxt
-import yaml
-
-from .config import Config
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +20,7 @@ class CryptoBot:
 
     def load_strategy(self) -> None:
         """Load strategy YAML defined in the ``crypto_bot.strategy`` config key."""
+        import yaml
         path = self.config.get("crypto_bot", {}).get("strategy")
         if not path:
             raise ValueError("Strategy path not configured")
@@ -32,6 +30,7 @@ class CryptoBot:
 
     def connect_exchange(self) -> None:
         """Connect to the exchange defined in the strategy."""
+        import ccxt
         name = self.strategy.get("exchange")
         if not name:
             raise ValueError("Strategy missing 'exchange' field")
