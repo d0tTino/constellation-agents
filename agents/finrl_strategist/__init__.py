@@ -5,6 +5,8 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
+from ..sdk import emit_event
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,13 +57,20 @@ class FinRLStrategist:
         return agent.DRL_prediction(model=trained, environment=env)
 
     def run_weekly(self) -> Any | None:
-        """Run ``backtest_last_30d`` every Monday."""
+        """Run ``backtest_last_30d`` every Monday and emit trade signals."""
         today = date.today()
         if today.weekday() != 0:
             logger.info("FinRLStrategist: not Monday, skipping run")
             return None
         logger.info("Running FinRLStrategist backtest for %s", today.isoformat())
-        return self.backtest_last_30d(today)
+        result = self.backtest_last_30d(today)
+        if isinstance(result, dict):
+            for ticker, action in result.items():
+                if action == "buy":
+                    emit_event("BuySignal", {"ticker": ticker})
+                elif action == "sell":
+                    emit_event("SellSignal", {"ticker": ticker})
+        return result
 
 
 __all__ = ["FinRLStrategist"]
