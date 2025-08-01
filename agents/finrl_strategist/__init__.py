@@ -65,11 +65,11 @@ class FinRLStrategist:
         logger.info("Running FinRLStrategist backtest for %s", today.isoformat())
         result = self.backtest_last_30d(today)
         if isinstance(result, dict):
+            signals = {"buy": "BuySignal", "sell": "SellSignal"}
             for ticker, action in result.items():
-                if action == "buy":
-                    emit_event("BuySignal", {"ticker": ticker})
-                elif action == "sell":
-                    emit_event("SellSignal", {"ticker": ticker})
+                topic = signals.get(action)
+                if topic:
+                    emit_event(topic, {"ticker": ticker})
         return result
 
 
