@@ -1,10 +1,19 @@
 from unittest.mock import MagicMock, patch
+import pytest
+import agents.sdk.base as base
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import agents.sdk as sdk
 from prometheus_client import CollectorRegistry, Counter, Histogram
+
+
+@pytest.fixture(autouse=True)
+def reset_metrics_started():
+    base._METRICS_STARTED = False
+    yield
+    base._METRICS_STARTED = False
 
 
 def test_emit_event_uses_kafka_producer():

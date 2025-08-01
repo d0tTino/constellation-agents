@@ -6,8 +6,9 @@ import time
 from typing import Any
 
 from prometheus_client import Counter, Histogram, start_http_server
-
 from kafka import KafkaConsumer, KafkaProducer
+
+_METRICS_STARTED = False
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +47,10 @@ class BaseAgent:
             value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         )
         self._labels = {"agent": self.__class__.__name__}
-        if metrics_port is not None:
+        global _METRICS_STARTED
+        if metrics_port is not None and not _METRICS_STARTED:
             start_http_server(metrics_port)
+            _METRICS_STARTED = True
 
     def emit(self, topic: str, event: dict[str, Any]) -> None:
         """Emit an event to a Kafka topic."""
