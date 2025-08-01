@@ -51,6 +51,22 @@ def test_ume_query_uses_sidecar(monkeypatch):
         )
 
 
+def test_ume_query_sidecar_env(monkeypatch):
+    """Ensure the sidecar URL from the environment is respected."""
+    with patch("agents.sdk.requests.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"ok": True}
+        mock_resp.raise_for_status.return_value = None
+        mock_post.return_value = mock_resp
+        monkeypatch.setenv("OPA_SIDECAR_URL", "http://proxy")
+        sdk.ume_query("http://target", {"x": 2})
+        mock_post.assert_called_once_with(
+            "http://proxy",
+            json={"url": "http://target", "payload": {"x": 2}},
+            timeout=10,
+        )
+
+
 def test_base_agent_dispatches_messages():
     with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
          patch("agents.sdk.base.KafkaProducer"), \

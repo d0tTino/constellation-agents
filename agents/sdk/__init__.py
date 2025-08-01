@@ -41,17 +41,17 @@ def emit_event(
 def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Send a query to a UME endpoint and return the JSON response.
 
-    If the environment variable ``OPA_SIDECAR_URL`` is set, the request is
-    routed through that URL with the original endpoint and payload included in
-    the JSON body.
+    When the ``OPA_SIDECAR_URL`` environment variable is defined, the request
+    is sent to that URL with the original endpoint and payload nested in the
+    JSON body. Otherwise the request is sent directly to ``endpoint``.
     """
 
     logger.debug("Querying UME at %s with payload %s", endpoint, payload)
 
-    sidecar = os.getenv("OPA_SIDECAR_URL")
-    if sidecar:
-        logger.debug("Routing request through OPA sidecar %s", sidecar)
-        url = sidecar
+    sidecar_url = os.getenv("OPA_SIDECAR_URL")
+    if sidecar_url:
+        logger.debug("Routing request through OPA sidecar %s", sidecar_url)
+        url = sidecar_url
         data = {"url": endpoint, "payload": payload}
     else:
         url = endpoint
