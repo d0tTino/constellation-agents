@@ -29,3 +29,17 @@ def test_watcher_emits_for_similar_doc() -> None:
         assert args[0] == "ume.events.suggested_task"
         assert args[1]["idea"] == "idea1"
         assert args[1]["doc"] == "doc1"
+
+
+def test_watcher_ignores_dissimilar_doc() -> None:
+    """Watcher should not emit events when similarity is below the threshold."""
+    event = {"id": "idea1", "vector": [1.0, 0.0]}
+    docs = {"docs": [{"id": "doc1", "vector": [0.1, 0.9]}]}
+    with patch("agents.eureka_watcher.ume_query", return_value=docs), \
+         patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"), \
+         patch.object(EurekaWatcher, "emit") as mock_emit:
+        watcher = EurekaWatcher("http://example")
+        watcher.handle_event(event)
+        mock_emit.assert_not_called()
