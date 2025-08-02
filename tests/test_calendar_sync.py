@@ -51,11 +51,28 @@ def test_handle_cal_event_emits_task_reschedule():
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarSync("http://api")
     agent.emit = MagicMock()
-    agent.handle_cal_event({"id": "2", "time": "t"})
-    agent.emit.assert_called_once_with(
-        "ume.events.task.reschedule",
-        {"id": "2", "time": "t"},
-    )
+    with patch("agents.calendar_sync.check_permission", return_value=True) as cp:
+        agent.handle_cal_event({"id": "2", "time": "t", "user_id": "u1", "group_id": "g1"})
+    cp.assert_called_once_with("u1", "write", "g1")
+    agent.emit.assert_called_once()
+    topic, payload = agent.emit.call_args[0]
+    kwargs = agent.emit.call_args[1]
+    assert topic == "ume.events.task.reschedule"
+    assert payload == {"id": "2", "time": "t", "user_id": "u1", "group_id": "g1"}
+    assert kwargs["user_id"] == "u1"
+    assert kwargs["group_id"] == "g1"
+
+
+def test_handle_cal_event_permission_denied():
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarSync("http://api")
+    agent.emit = MagicMock()
+    with patch("agents.calendar_sync.check_permission", return_value=False) as cp:
+        agent.handle_cal_event({"id": "2", "time": "t", "user_id": "u1"})
+    cp.assert_called_once_with("u1", "write", None)
+    agent.emit.assert_not_called()
 
 
 def test_webhook_server_processes_post():
@@ -68,7 +85,7 @@ def test_webhook_server_processes_post():
     try:
         with patch.object(agent, "handle_cal_event") as mock_handle:
             url = f"http://{agent._webhook_server.server_address[0]}:{agent._webhook_server.server_port}"
-            requests.post(url, json={"id": "3", "time": "t"})
-            mock_handle.assert_called_once_with({"id": "3", "time": "t"})
+            requests.post(url, json={"id": "3", "time": "t", "user_id": "u1"})
+            mock_handle.assert_called_once_with({"id": "3", "time": "t", "user_id": "u1"})
     finally:
         agent.stop_webhook_server()
