@@ -8,7 +8,10 @@ from typing import Any
 from prometheus_client import Counter, Histogram, start_http_server
 from kafka import KafkaConsumer, KafkaProducer
 
-_METRICS_STARTED = False
+# Track which metric ports have been initialized to avoid conflicts when
+# multiple agent instances are created. Using a set allows metrics servers to
+# run on different ports concurrently.
+_METRICS_STARTED: set[int] = set()
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +56,9 @@ class BaseAgent:
         )
         self._labels = {"agent": self.__class__.__name__}
         global _METRICS_STARTED
-        if metrics_port is not None and not _METRICS_STARTED:
+        if metrics_port is not None and metrics_port not in _METRICS_STARTED:
             start_http_server(metrics_port)
-            _METRICS_STARTED = True
+            _METRICS_STARTED.add(metrics_port)
 
     def emit(self, topic: str, event: dict[str, Any]) -> None:
         """Emit an event to a Kafka topic."""
