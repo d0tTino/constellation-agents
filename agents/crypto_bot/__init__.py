@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from ..config import Config
-from ..sdk import emit_event
+from ..sdk import emit_event, check_permission
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 class CryptoBot:
     """Simple wrapper around the Freqtrade engine."""
 
-    def __init__(self, config: Config) -> None:
+    def __init__(
+        self, config: Config, *, user_id: str, group_id: str | None = None
+    ) -> None:
         self.config = config
+        self.user_id = user_id
+        self.group_id = group_id
         self.strategy: dict[str, Any] = {}
         self.exchange: Any | None = None
         self.engine: Any | None = None
@@ -59,6 +63,10 @@ class CryptoBot:
 
     def run(self) -> None:
         """Run the bot."""
+        if not check_permission(self.user_id, "trade", self.group_id):
+            logger.info("Permission denied for %s", self.user_id)
+            return
+
         self.load_strategy()
         self.connect_exchange()
         self.init_engine()
@@ -76,11 +84,11 @@ class CryptoBot:
             # After execution publish basic metrics.
             positions = getattr(self.engine, "positions", [])
             profit = getattr(self.engine, "profit", 0.0)
-            emit_event(
-                "TradeSummary",
-                {"positions": positions, "profit": profit},
-                user_id="crypto_bot",
-            )
+            payload = {"positions": positions, "profit": profit}
+            kwargs: dict[str, Any] = {"user_id": self.user_id}
+            if self.group_id is not None:
+                kwargs["group_id"] = self.group_id
+            emit_event("TradeSummary", payload, **kwargs)
         finally:
             # Ensure the engine shuts down cleanly even if execution fails.
             shutdown = getattr(self.engine, "stop", None) or getattr(

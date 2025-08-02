@@ -19,7 +19,7 @@ def test_load_strategy_and_connect(tmp_path):
     strat_file.write_text("exchange: binance\n")
     cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
 
-    bot = CryptoBot(Config(cfg_file))
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
     bot.load_strategy()
     assert bot.strategy == {"exchange": "binance"}
 
@@ -43,7 +43,7 @@ def test_init_engine_uses_freqtrade_modules(tmp_path):
         "freqtrade.worker": fake_worker_module,
         "freqtrade.configuration": fake_configuration_module,
     }):
-        bot = CryptoBot(Config(cfg_file))
+        bot = CryptoBot(Config(cfg_file), user_id="u1")
         bot.strategy = {"exchange": "binance"}
         bot.init_engine()
         assert bot.engine is fake_worker_module.Worker.return_value
@@ -55,21 +55,22 @@ def test_run_emits_metrics(tmp_path):
     strat_file.write_text("exchange: binance\n")
     cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
 
-    bot = CryptoBot(Config(cfg_file))
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
     engine = MagicMock()
     engine.positions = ["pos1"]
     engine.profit = 1.23
     bot.engine = engine
     with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(bot, "init_engine"), patch(
         "agents.crypto_bot.emit_event"
-    ) as emit:
+    ) as emit, patch("agents.crypto_bot.check_permission", return_value=True) as cp:
         bot.run()
-        engine.run.assert_called_once()
-        emit.assert_called_once_with(
-            "TradeSummary",
-            {"positions": engine.positions, "profit": engine.profit},
-            user_id="crypto_bot",
-        )
+    engine.run.assert_called_once()
+    cp.assert_called_once_with("u1", "trade", None)
+    emit.assert_called_once_with(
+        "TradeSummary",
+        {"positions": engine.positions, "profit": engine.profit},
+        user_id="u1",
+    )
 
 
 def test_run_calls_stop_on_error(tmp_path):
@@ -78,16 +79,19 @@ def test_run_calls_stop_on_error(tmp_path):
     strat_file.write_text("exchange: binance\n")
     cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
 
-    bot = CryptoBot(Config(cfg_file))
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
     engine = MagicMock()
     engine.run.side_effect = RuntimeError("boom")
     engine.stop = MagicMock()
     bot.engine = engine
     with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(
         bot, "init_engine"
-    ), patch("agents.crypto_bot.emit_event") as emit:
+    ), patch("agents.crypto_bot.emit_event") as emit, patch(
+        "agents.crypto_bot.check_permission", return_value=True
+    ) as cp:
         with pytest.raises(RuntimeError):
             bot.run()
+    cp.assert_called_once_with("u1", "trade", None)
     engine.stop.assert_called_once()
     emit.assert_not_called()
 
@@ -102,13 +106,16 @@ def test_run_calls_close_on_error(tmp_path):
     engine.start.side_effect = RuntimeError("boom")
     engine.close = MagicMock()
 
-    bot = CryptoBot(Config(cfg_file))
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
     bot.engine = engine
     with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(
         bot, "init_engine"
-    ), patch("agents.crypto_bot.emit_event") as emit:
+    ), patch("agents.crypto_bot.emit_event") as emit, patch(
+        "agents.crypto_bot.check_permission", return_value=True
+    ) as cp:
         with pytest.raises(RuntimeError):
             bot.run()
+    cp.assert_called_once_with("u1", "trade", None)
     engine.close.assert_called_once()
     emit.assert_not_called()
 
@@ -124,15 +131,16 @@ def test_run_emits_metrics_when_start_used(tmp_path):
     engine.positions = ["pos1"]
     engine.profit = 2.34
 
-    bot = CryptoBot(Config(cfg_file))
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
     bot.engine = engine
     with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(bot, "init_engine"), patch(
         "agents.crypto_bot.emit_event"
-    ) as emit:
+    ) as emit, patch("agents.crypto_bot.check_permission", return_value=True) as cp:
         bot.run()
-        engine.start.assert_called_once()
-        emit.assert_called_once_with(
-            "TradeSummary",
-            {"positions": engine.positions, "profit": engine.profit},
-            user_id="crypto_bot",
-        )
+    engine.start.assert_called_once()
+    cp.assert_called_once_with("u1", "trade", None)
+    emit.assert_called_once_with(
+        "TradeSummary",
+        {"positions": engine.positions, "profit": engine.profit},
+        user_id="u1",
+    )

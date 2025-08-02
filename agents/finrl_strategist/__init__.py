@@ -6,7 +6,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
-from ..sdk import BaseAgent
+from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -17,11 +17,20 @@ class FinRLStrategist(BaseAgent):
 
     topic_subscriptions = ["finrl.schedule", "finrl.trigger"]
 
-    def __init__(self, tickers: list[str], *, bootstrap_servers: str = "localhost:9092") -> None:
+    def __init__(
+        self,
+        tickers: list[str],
+        *,
+        user_id: str,
+        group_id: str | None = None,
+        bootstrap_servers: str = "localhost:9092",
+    ) -> None:
         super().__init__(
             self.topic_subscriptions, bootstrap_servers=bootstrap_servers, group_id="finrl-strategist"
         )
         self.tickers = tickers
+        self.user_id = user_id
+        self.group_id = group_id
 
     def _load_data(self, start: date, end: date):
         """Load historical data using FinRL's YahooDownloader."""
@@ -69,6 +78,9 @@ class FinRLStrategist(BaseAgent):
         if today.weekday() != 0:
             logger.info("FinRLStrategist: not Monday, skipping run")
             return None
+        if not check_permission(self.user_id, "trade", self.group_id):
+            logger.info("Permission denied for %s", self.user_id)
+            return None
         logger.info("Running FinRLStrategist backtest for %s", today.isoformat())
         result = self.backtest_last_30d(today)
         if isinstance(result, dict):
@@ -76,7 +88,15 @@ class FinRLStrategist(BaseAgent):
             for ticker, action in result.items():
                 topic = signals.get(action)
                 if topic:
-                    self.emit(topic, {"ticker": ticker}, user_id="finrl")
+                    payload = {"ticker": ticker, "user_id": self.user_id}
+                    if self.group_id is not None:
+                        payload["group_id"] = self.group_id
+                    self.emit(
+                        topic,
+                        payload,
+                        user_id=self.user_id,
+                        group_id=self.group_id,
+                    )
         self.producer.close()
         return result
 
@@ -89,7 +109,14 @@ async def main(config: Config | None = None) -> None:
     section = config.get("finrl_strategist", {}) if config else {}
     tickers = section.get("tickers", ["SPY"])
     bootstrap = section.get("bootstrap_servers", "localhost:9092")
-    strategist = FinRLStrategist(list(tickers), bootstrap_servers=bootstrap)
+    user_id = section.get("user_id", "finrl")
+    group_id = section.get("group_id")
+    strategist = FinRLStrategist(
+        list(tickers),
+        user_id=user_id,
+        group_id=group_id,
+        bootstrap_servers=bootstrap,
+    )
     await asyncio.to_thread(strategist.run)
 
 
