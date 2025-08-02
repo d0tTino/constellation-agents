@@ -56,27 +56,46 @@ def test_percentile_zscore_negative_numbers() -> None:
 
 def test_emit_on_high_zscore(advisor: FinanceAdvisor) -> None:
     normal = [100, 105, 95, 100, 102, 98, 101, 99, 103, 97]
-    for amt in normal:
-        advisor.handle_event({"amount": amt})
-    advisor.emit.assert_not_called()
-
-    advisor.handle_event({"amount": 1000})
+    with patch("agents.finance_advisor.check_permission", return_value=True) as cp:
+        for amt in normal:
+            advisor.handle_event({"amount": amt, "user_id": "u1", "group_id": "g1"})
+        advisor.emit.assert_not_called()
+        advisor.handle_event({"amount": 1000, "user_id": "u1", "group_id": "g1"})
+    assert cp.call_count == len(normal) + 1
     advisor.emit.assert_called_once()
     topic, payload = advisor.emit.call_args[0]
+    kwargs = advisor.emit.call_args[1]
     assert topic == "ume.events.transaction.anomaly"
+    assert kwargs["user_id"] == "u1"
+    assert kwargs["group_id"] == "g1"
     assert payload["amount"] == 1000
     assert payload["z"] > 3
+    assert payload["user_id"] == "u1"
+    assert payload["group_id"] == "g1"
 
 
 def test_emit_on_low_zscore(advisor: FinanceAdvisor) -> None:
     normal = [100, 105, 95, 100, 102, 98, 101, 99, 103, 97]
-    for amt in normal:
-        advisor.handle_event({"amount": amt})
-    advisor.emit.assert_not_called()
-
-    advisor.handle_event({"amount": -1000})
+    with patch("agents.finance_advisor.check_permission", return_value=True) as cp:
+        for amt in normal:
+            advisor.handle_event({"amount": amt, "user_id": "u1"})
+        advisor.emit.assert_not_called()
+        advisor.handle_event({"amount": -1000, "user_id": "u1"})
+    assert cp.call_count == len(normal) + 1
     advisor.emit.assert_called_once()
     topic, payload = advisor.emit.call_args[0]
+    kwargs = advisor.emit.call_args[1]
     assert topic == "ume.events.transaction.anomaly"
+    assert kwargs["user_id"] == "u1"
+    assert kwargs["group_id"] is None
     assert payload["amount"] == -1000
     assert payload["z"] < -3
+    assert payload["user_id"] == "u1"
+    assert "group_id" not in payload
+
+
+def test_permission_denied(advisor: FinanceAdvisor) -> None:
+    with patch("agents.finance_advisor.check_permission", return_value=False) as cp:
+        advisor.handle_event({"amount": 10, "user_id": "u1"})
+    cp.assert_called_once_with("u1", "read", None)
+    advisor.emit.assert_not_called()

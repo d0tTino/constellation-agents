@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Sequence
+from typing import Sequence, Any
 import math
 
-from ..sdk import BaseAgent
+from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,15 @@ class FinanceAdvisor(BaseAgent):
         )
         self.amounts: list[float] = []
 
-    def handle_event(self, event: dict[str, float]) -> None:  # type: ignore[override]
+    def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
+        user_id = event.get("user_id")
+        if not user_id:
+            logger.debug("Received event without user_id: %s", event)
+            return
+        group_id = event.get("group_id")
+        if not check_permission(user_id, "read", group_id):
+            logger.info("Permission denied for user %s", user_id)
+            return
         amount = event.get("amount")
         if amount is None:
             logger.debug("Received event without amount: %s", event)
@@ -63,9 +71,14 @@ class FinanceAdvisor(BaseAgent):
         score = percentile_zscore(self.amounts, float(amount))
         logger.info("Transaction %s has z-score %.2f", amount, score)
         if abs(score) > 3:
+            payload = {"amount": amount, "z": score, "user_id": user_id}
+            if group_id is not None:
+                payload["group_id"] = group_id
             self.emit(
                 "ume.events.transaction.anomaly",
-                {"amount": amount, "z": score},
+                payload,
+                user_id=user_id,
+                group_id=group_id,
             )
 
 
