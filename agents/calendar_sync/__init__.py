@@ -9,7 +9,7 @@ from typing import Any
 
 import requests
 
-from ..sdk import BaseAgent
+from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -59,12 +59,22 @@ class CalendarSync(BaseAgent):
         """Process a webhook payload from Cal.com."""
         appointment_id = event.get("id")
         start = event.get("time")
-        if appointment_id is None or start is None:
+        user_id = event.get("user_id")
+        group_id = event.get("group_id")
+        if appointment_id is None or start is None or not user_id:
             logger.debug("Invalid Cal.com event: %s", event)
             return
+        if not check_permission(user_id, "write", group_id):
+            logger.info("Write permission denied for %s", user_id)
+            return
+        payload = {"id": appointment_id, "time": start, "user_id": user_id}
+        if group_id is not None:
+            payload["group_id"] = group_id
         self.emit(
             "ume.events.task.reschedule",
-            {"id": appointment_id, "time": start},
+            payload,
+            user_id=user_id,
+            group_id=group_id,
         )
         logger.info("Emitted TaskReschedule for %s", appointment_id)
 
