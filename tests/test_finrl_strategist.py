@@ -17,18 +17,19 @@ class Monday(date):
 
 
 def test_run_weekly_emits_signals():
-    strategist = FinRLStrategist(["SPY", "AAPL"])
     predictions = {"SPY": "buy", "AAPL": "sell"}
-    with patch("agents.finrl_strategist.date", Monday), \
-         patch("agents.sdk.KafkaProducer") as mock_producer_cls, \
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer") as mock_producer_cls, \
+         patch("agents.finrl_strategist.date", Monday), \
          patch.object(FinRLStrategist, "backtest_last_30d", return_value=predictions):
         mock_producer = MagicMock()
         mock_producer_cls.return_value = mock_producer
+        strategist = FinRLStrategist(["SPY", "AAPL"])
         result = strategist.run_weekly()
         assert result == predictions
         assert mock_producer.send.call_count == 2
         assert mock_producer.flush.call_count == 2
-        assert mock_producer.close.call_count == 2
+        mock_producer.close.assert_called_once()
         calls = [
             (("BuySignal", {"ticker": "SPY"}),),
             (("SellSignal", {"ticker": "AAPL"}),),
