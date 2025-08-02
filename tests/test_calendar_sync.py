@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import logging
 from pathlib import Path
 import sys
+from unittest.mock import MagicMock, patch
+
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -16,12 +18,31 @@ def test_handle_event_posts_to_cal():
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarSync("http://api")
     with patch("agents.calendar_sync.requests.post") as mock_post:
+        mock_post.return_value.status_code = 200
         agent.handle_event({"id": "1", "time": "t"})
         mock_post.assert_called_once_with(
             "http://api",
             json={"id": "1", "time": "t"},
             timeout=10,
         )
+
+
+def test_handle_event_retries_on_failure(caplog):
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarSync("http://api")
+    bad = MagicMock(status_code=500)
+    good = MagicMock(status_code=200)
+    with patch(
+        "agents.calendar_sync.requests.post", side_effect=[bad, good]
+    ) as mock_post:
+        with caplog.at_level(logging.ERROR):
+            agent.handle_event({"id": "1", "time": "t"})
+    assert mock_post.call_count == 2
+    assert any(
+        "Cal.com sync failed" in record.message for record in caplog.records
+    )
 
 
 def test_handle_cal_event_emits_task_reschedule():

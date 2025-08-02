@@ -37,15 +37,23 @@ class CalendarSync(BaseAgent):
         if appointment_id is None or start is None:
             logger.debug("Invalid UME event: %s", event)
             return
-        try:
-            requests.post(
-                self.cal_endpoint,
-                json={"id": appointment_id, "time": start},
-                timeout=10,
+        payload = {"id": appointment_id, "time": start}
+        for _ in range(2):
+            try:
+                response = requests.post(
+                    self.cal_endpoint, json=payload, timeout=10
+                )
+            except Exception as exc:  # pragma: no cover - network errors
+                logger.error("Failed to sync to Cal.com: %s", exc)
+                return
+            if 200 <= response.status_code < 300:
+                logger.info("Synced appointment %s to Cal.com", appointment_id)
+                return
+            logger.error(
+                "Cal.com sync failed (status %s) for appointment %s",
+                response.status_code,
+                appointment_id,
             )
-            logger.info("Synced appointment %s to Cal.com", appointment_id)
-        except Exception as exc:  # pragma: no cover - network errors
-            logger.error("Failed to sync to Cal.com: %s", exc)
 
     def handle_cal_event(self, event: dict[str, Any]) -> None:
         """Process a webhook payload from Cal.com."""
