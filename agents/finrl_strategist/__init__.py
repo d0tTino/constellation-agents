@@ -6,16 +6,21 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
-from ..sdk import emit_event
+from ..sdk import BaseAgent
 from ..config import Config
 
 logger = logging.getLogger(__name__)
 
 
-class FinRLStrategist:
+class FinRLStrategist(BaseAgent):
     """Run FinRL policies on a weekly schedule with 30-day backtests."""
 
-    def __init__(self, tickers: list[str]):
+    topic_subscriptions = ["finrl.schedule", "finrl.trigger"]
+
+    def __init__(self, tickers: list[str], *, bootstrap_servers: str = "localhost:9092") -> None:
+        super().__init__(
+            self.topic_subscriptions, bootstrap_servers=bootstrap_servers, group_id="finrl-strategist"
+        )
         self.tickers = tickers
 
     def _load_data(self, start: date, end: date):
@@ -71,15 +76,21 @@ class FinRLStrategist:
             for ticker, action in result.items():
                 topic = signals.get(action)
                 if topic:
-                    emit_event(topic, {"ticker": ticker})
+                    self.emit(topic, {"ticker": ticker})
+        self.producer.close()
         return result
+
+    def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
+        """Consume schedule or trigger events to run backtests."""
+        self.run_weekly()
 
 
 async def main(config: Config | None = None) -> None:
     section = config.get("finrl_strategist", {}) if config else {}
     tickers = section.get("tickers", ["SPY"])
-    strategist = FinRLStrategist(list(tickers))
-    await asyncio.to_thread(strategist.run_weekly)
+    bootstrap = section.get("bootstrap_servers", "localhost:9092")
+    strategist = FinRLStrategist(list(tickers), bootstrap_servers=bootstrap)
+    await asyncio.to_thread(strategist.run)
 
 
 __all__ = ["FinRLStrategist", "main"]

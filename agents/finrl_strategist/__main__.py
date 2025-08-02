@@ -5,7 +5,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from . import main as run_main
+from . import main
 from ..config import Config
 
 
@@ -19,12 +19,12 @@ def cli() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def entrypoint() -> None:
     args = cli()
     cfg_path = Path(args.config)
     cfg = Config(cfg_path) if cfg_path.exists() else None
-    asyncio.run(run_main(cfg))
+    asyncio.run(main(cfg))
 
 
 if __name__ == "__main__":
-    main()
+    entrypoint()
