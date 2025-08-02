@@ -46,6 +46,20 @@ CONFIG_PATH=/srv/agents.toml python -m agents.crypto_bot
 ```
 
 
+## UME Permissions
+
+The SDK communicates with the Unified Messaging Engine (UME) for permission
+checks.  Use `agents.sdk.check_permission` to verify whether a user may perform
+an action.  The function posts to the endpoint defined by the
+`UME_PERMISSION_ENDPOINT` environment variable, defaulting to
+`http://localhost:8000/permissions/check`.
+
+Requests are routed through the optional OPA sidecar in the same manner as
+`agents.sdk.ume_query`.  When `OPA_SIDECAR_URL` is set, the original endpoint
+and payload are wrapped and sent to the sidecar URL instead of directly to the
+UME service.
+
+
 ## FinRL Strategist
 
 The package `agents.finrl_strategist` integrates the [FinRL](https://github.com/AI4Finance-Foundation/FinRL) framework.

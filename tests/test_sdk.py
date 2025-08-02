@@ -67,6 +67,20 @@ def test_ume_query_sidecar_env(monkeypatch):
         )
 
 
+def test_check_permission_allowed():
+    with patch("agents.sdk.ume_query") as mock_query:
+        mock_query.return_value = {"allow": True}
+        assert sdk.check_permission("user1", "read") is True
+        mock_query.assert_called_once()
+
+
+def test_check_permission_denied():
+    with patch("agents.sdk.ume_query") as mock_query:
+        mock_query.return_value = {"allow": False}
+        assert sdk.check_permission("user1", "write", group_id="g1") is False
+        mock_query.assert_called_once()
+
+
 def test_base_agent_dispatches_messages():
     with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
          patch("agents.sdk.base.KafkaProducer"), \
