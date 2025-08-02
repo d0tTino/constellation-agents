@@ -25,15 +25,29 @@ def emit_event(
     topic: str,
     event: dict[str, Any],
     *,
+    user_id: str,
+    group_id: str | None = None,
     bootstrap_servers: str = "localhost:9092",
 ) -> None:
-    """Emit a JSON event to a Kafka topic."""
+    """Emit a JSON event to a Kafka topic.
+
+    ``user_id`` is required and will be injected into the event payload. A
+    ``ValueError`` is raised when it is missing or falsy. ``group_id`` is
+    optional and, if provided, included in the payload.
+    """
+    if not user_id:
+        raise ValueError("user_id is required")
+
     producer = KafkaProducer(
         bootstrap_servers=bootstrap_servers,
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
-    logger.debug("Emitting event to %s: %s", topic, event)
-    producer.send(topic, event)
+    payload = event.copy()
+    payload["user_id"] = user_id
+    if group_id is not None:
+        payload["group_id"] = group_id
+    logger.debug("Emitting event to %s: %s", topic, payload)
+    producer.send(topic, payload)
     producer.flush()
     producer.close()
 

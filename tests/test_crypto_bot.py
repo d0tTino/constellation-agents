@@ -68,6 +68,7 @@ def test_run_emits_metrics(tmp_path):
         emit.assert_called_once_with(
             "TradeSummary",
             {"positions": engine.positions, "profit": engine.profit},
+            user_id="crypto_bot",
         )
 
 
@@ -133,4 +134,5 @@ def test_run_emits_metrics_when_start_used(tmp_path):
         emit.assert_called_once_with(
             "TradeSummary",
             {"positions": engine.positions, "profit": engine.profit},
+            user_id="crypto_bot",
         )

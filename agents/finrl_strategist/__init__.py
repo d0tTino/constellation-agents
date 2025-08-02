@@ -76,7 +76,7 @@ class FinRLStrategist(BaseAgent):
             for ticker, action in result.items():
                 topic = signals.get(action)
                 if topic:
-                    self.emit(topic, {"ticker": ticker})
+                    self.emit(topic, {"ticker": ticker}, user_id="finrl")
         self.producer.close()
         return result
 
