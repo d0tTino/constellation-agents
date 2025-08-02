@@ -59,6 +59,134 @@ Requests are routed through the optional OPA sidecar in the same manner as
 and payload are wrapped and sent to the sidecar URL instead of directly to the
 UME service.
 
+## CalendarNLPAgent
+
+Translates natural language requests into structured calendar events.
+
+**Topics**
+
+- Consumes: `calendar.nl.request`
+- Produces: `calendar.event.create_request`
+
+**Payloads**
+
+- Incoming `calendar.nl.request`
+
+  ```json
+  {"text": "Lunch with Sam at noon", "user_id": "u1"}
+  ```
+
+- Outgoing `calendar.event.create_request`
+
+  ```json
+  {
+    "title": "Lunch",
+    "start_time": "2024-01-01T12:00:00",
+    "end_time": "2024-01-01T13:00:00",
+    "location": "Cafe",
+    "description": "Lunch with Sam",
+    "is_all_day": false,
+    "recurrence": null
+  }
+  ```
+
+**Permission model**
+
+```python
+from agents.sdk import check_permission
+
+if check_permission(user_id, "calendar:create"):
+    agent.emit("calendar.event.create_request", calendar_event, user_id=user_id)
+```
+
+## ExplainabilityAgent
+
+Provides human‑readable explanations for financial analyses.
+
+**Topics**
+
+- Consumes: `finance.explain.request`
+- Produces: `finance.explain.result`
+
+**Payloads**
+
+- Incoming `finance.explain.request`
+
+  ```json
+  {"analysis_id": "a1", "user_id": "u1"}
+  ```
+
+- Outgoing `finance.explain.result`
+
+  ```json
+  {
+    "analysis_id": "a1",
+    "explanations": [
+      {"action": "invest", "pros": "growth", "cons": "risk"}
+    ]
+  }
+  ```
+
+**Permission model**
+
+```python
+from agents.sdk import check_permission
+
+if not check_permission(user_id, "analysis:read"):
+    return
+```
+
+## PlaidSyncAgent
+
+Synchronizes transactions from Plaid and emits updates.
+
+**Topics**
+
+- Consumes: `plaid.transactions.sync`
+- Produces: `plaid.transaction.synced`
+
+**Payloads**
+
+- Incoming `plaid.transactions.sync`
+
+  ```json
+  {"user_id": "u1", "group_id": "g1"}
+  ```
+
+- Outgoing `plaid.transaction.synced`
+
+  ```json
+  {
+    "id": "t1",
+    "amount": 42,
+    "user_id": "u1",
+    "group_id": "g1"
+  }
+  ```
+
+**Permission model**
+
+```python
+from agents.sdk import check_permission
+
+if not check_permission(user_id, "read", group_id):
+    return
+transactions = plaid.fetch_transactions(user_id)
+if check_permission(user_id, "write", group_id):
+    for tx in transactions:
+        agent.emit("plaid.transaction.synced", tx, user_id=user_id, group_id=group_id)
+```
+
+## Event Topics
+
+| Topic | Produced By | Consumed By | Required identifiers |
+| ----- | ----------- | ----------- | -------------------- |
+| `calendar.nl.request` | client applications | CalendarNLPAgent | `user_id`, `text` |
+| `calendar.event.create_request` | CalendarNLPAgent | calendar service | `user_id`, event fields |
+| `finance.explain.request` | analytics service | ExplainabilityAgent | `user_id`, `analysis_id` |
+| `finance.explain.result` | ExplainabilityAgent | clients | `user_id`, `analysis_id` |
+| `plaid.transactions.sync` | scheduler | PlaidSyncAgent | `user_id`, `group_id` (optional) |
+| `plaid.transaction.synced` | PlaidSyncAgent | transaction processor | `user_id`, `group_id` (optional), transaction fields |
 
 ## FinRL Strategist
 
