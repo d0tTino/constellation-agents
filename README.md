@@ -9,6 +9,16 @@ Tests and linting only trigger when code changes occur—documentation updates
 or comment-only edits are ignored. If `pyproject.toml` is missing, Ruff runs
 directly and tests are skipped.
 
+## Setup
+
+Install the Python dependencies with [Poetry](https://python-poetry.org/):
+
+```bash
+pip install poetry
+poetry install
+```
+
+
 
 ## Configuration
 
@@ -29,6 +39,13 @@ with the `--config` command line option or `CONFIG_PATH` environment
 variable. If omitted, agents default to a `config.toml` file in the current
 directory.
 
+Set `CONFIG_PATH` or pass `--config` to point agents at a different file:
+
+```bash
+CONFIG_PATH=/srv/agents.toml python -m agents.crypto_bot
+```
+
+
 ## FinRL Strategist
 
 The package `agents.finrl_strategist` integrates the [FinRL](https://github.com/AI4Finance-Foundation/FinRL) framework.
@@ -38,7 +55,7 @@ producing predictions.
 
 ## Docker Images
 
-Each agent directory contains a `Dockerfile` for containerized execution. Build the images from the repository root:
+Each agent directory contains a `Dockerfile` for containerized execution. After installing dependencies, build the images from the repository root:
 
 ```bash
 docker build -t finance-advisor -f agents/finance_advisor/Dockerfile .
@@ -52,4 +69,11 @@ Run the containers with:
 docker run --rm finance-advisor
 docker run --rm crypto-bot
 docker run --rm finrl-strategist
+```
+
+Pass `CONFIG_PATH` to override the default configuration file inside the
+container:
+
+```bash
+docker run --rm -e CONFIG_PATH=/srv/agents.toml crypto-bot
 ```
