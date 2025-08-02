@@ -18,9 +18,11 @@ logger = logging.getLogger(__name__)
 class CalendarSync(BaseAgent):
     """Synchronize Cal.com webhooks with UME appointment nodes."""
 
+    topic_subscriptions = ["ume.nodes.appointment"]
+
     def __init__(self, cal_endpoint: str, *, bootstrap_servers: str = "localhost:9092") -> None:
         super().__init__(
-            "ume.nodes.appointment",
+            self.topic_subscriptions,
             bootstrap_servers=bootstrap_servers,
             group_id="calendar-sync",
         )

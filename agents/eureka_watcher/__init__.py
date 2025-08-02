@@ -26,9 +26,11 @@ def cosine_similarity(a: Sequence[float], b: Sequence[float]) -> float:
 class EurekaWatcher(BaseAgent):
     """Watch IdeaSeed events and suggest tasks for similar docs."""
 
+    topic_subscriptions = ["ume.events.ideaseed"]
+
     def __init__(self, docs_endpoint: str, *, bootstrap_servers: str = "localhost:9092") -> None:
         super().__init__(
-            "ume.events.ideaseed", bootstrap_servers=bootstrap_servers, group_id="eureka-watcher"
+            self.topic_subscriptions, bootstrap_servers=bootstrap_servers, group_id="eureka-watcher"
         )
         self.docs_endpoint = docs_endpoint
 

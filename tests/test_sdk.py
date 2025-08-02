@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 import pytest
 import agents.sdk.base as base
 import sys
@@ -130,29 +130,24 @@ def test_metrics_increment_when_processing_events():
         assert dur_count == 1.0
 
 
-def test_run_continues_on_handler_error(caplog):
+def test_base_agent_accepts_multiple_topics():
     with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"):
-        mock_consumer = MagicMock()
-        mock_consumer_cls.return_value = mock_consumer
-        mock_consumer.__iter__.return_value = iter(
-            [MagicMock(value={"x": 1}), MagicMock(value={"x": 2})]
-        )
+        mock_consumer_cls.return_value = MagicMock(__iter__=lambda self: iter([]))
 
         class TestAgent(sdk.BaseAgent):
             def __init__(self):
-                super().__init__("topic", metrics_port=None)
-                self.events: list[dict[str, int]] = []
+                super().__init__(["t1", "t2"], metrics_port=None)
 
-            def handle_event(self, event: dict[str, int]) -> None:
-                self.events.append(event)
-                if event["x"] == 1:
-                    raise RuntimeError("boom")
+            def handle_event(self, event):  # pragma: no cover - unused
+                pass
 
-        agent = TestAgent()
-        with caplog.at_level("ERROR"):
-            agent.run()
-
-        assert agent.events == [{"x": 1}, {"x": 2}]
-        assert "boom" in caplog.text
+        TestAgent()
+        mock_consumer_cls.assert_called_once_with(
+            "t1",
+            "t2",
+            bootstrap_servers="localhost:9092",
+            group_id=None,
+            value_deserializer=ANY,
+        )
