@@ -62,10 +62,14 @@ class BaseAgent:
         """Dispatch an event to the handler."""
         logger.debug("Dispatching event: %s", event)
         start = time.monotonic()
-        self.handle_event(event)
-        duration = time.monotonic() - start
-        MESSAGE_COUNTER.labels(**self._labels).inc()
-        PROCESSING_TIME.labels(**self._labels).observe(duration)
+        try:
+            self.handle_event(event)
+        except Exception:  # noqa: BLE001 - broad exception is intentional
+            logger.exception("Error handling event: %s", event)
+        finally:
+            duration = time.monotonic() - start
+            MESSAGE_COUNTER.labels(**self._labels).inc()
+            PROCESSING_TIME.labels(**self._labels).observe(duration)
 
     def handle_event(self, event: dict[str, Any]) -> None:
         """Handle an event from the subscribed topic. Override in subclasses."""

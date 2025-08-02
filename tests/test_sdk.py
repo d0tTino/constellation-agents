@@ -128,3 +128,31 @@ def test_metrics_increment_when_processing_events():
         )
         assert msg_val == 1.0
         assert dur_count == 1.0
+
+
+def test_run_continues_on_handler_error(caplog):
+    with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        mock_consumer = MagicMock()
+        mock_consumer_cls.return_value = mock_consumer
+        mock_consumer.__iter__.return_value = iter(
+            [MagicMock(value={"x": 1}), MagicMock(value={"x": 2})]
+        )
+
+        class TestAgent(sdk.BaseAgent):
+            def __init__(self):
+                super().__init__("topic", metrics_port=None)
+                self.events: list[dict[str, int]] = []
+
+            def handle_event(self, event: dict[str, int]) -> None:
+                self.events.append(event)
+                if event["x"] == 1:
+                    raise RuntimeError("boom")
+
+        agent = TestAgent()
+        with caplog.at_level("ERROR"):
+            agent.run()
+
+        assert agent.events == [{"x": 1}, {"x": 2}]
+        assert "boom" in caplog.text
