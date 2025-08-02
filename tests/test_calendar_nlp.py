@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from agents.calendar_nlp import CalendarNLPAgent
+
+
+@pytest.fixture()
+def agent() -> tuple[CalendarNLPAgent, MagicMock]:
+    llm = MagicMock(return_value={
+        "title": "Lunch",
+        "start_time": "2024-01-01T12:00:00",
+        "end_time": "2024-01-01T13:00:00",
+        "location": "Cafe",
+        "description": "Lunch with Sam",
+        "is_all_day": False,
+        "recurrence": None,
+    })
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarNLPAgent(llm)
+    agent.emit = MagicMock()
+    return agent, llm
+
+
+def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
+    agent_instance.handle_event(event)
+    llm.assert_called_once_with("Lunch with Sam at noon")
+    agent_instance.emit.assert_called_once()
+    topic, payload = agent_instance.emit.call_args[0]
+    kwargs = agent_instance.emit.call_args[1]
+    assert topic == "calendar.event.create_request"
+    assert payload["title"] == "Lunch"
+    assert kwargs["user_id"] == "u1"
+
+
+def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    agent_instance.handle_event({"text": "No user"})
+    llm.assert_not_called()
+    agent_instance.emit.assert_not_called()
