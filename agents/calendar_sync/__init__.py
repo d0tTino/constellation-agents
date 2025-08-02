@@ -10,6 +10,7 @@ from typing import Any
 import requests
 
 from ..sdk import BaseAgent
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -92,9 +93,12 @@ class CalendarSync(BaseAgent):
             self._webhook_thread.join()
 
 
-async def main() -> None:
+async def main(config: Config | None = None) -> None:
     """Entry point for running ``CalendarSync`` asynchronously."""
-    agent = CalendarSync(cal_endpoint="http://localhost/api/cal")
+    section = config.get("calendar_sync", {}) if config else {}
+    endpoint = section.get("cal_endpoint", "http://localhost/api/cal")
+    bootstrap = section.get("bootstrap_servers", "localhost:9092")
+    agent = CalendarSync(endpoint, bootstrap_servers=bootstrap)
     agent.start_webhook_server()
     try:
         await asyncio.to_thread(agent.run)

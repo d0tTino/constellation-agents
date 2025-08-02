@@ -6,6 +6,7 @@ from typing import Sequence
 import math
 
 from ..sdk import BaseAgent
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +67,11 @@ class FinanceAdvisor(BaseAgent):
             )
 
 
-async def main() -> None:
+async def main(config: Config | None = None) -> None:
     """Asynchronous entrypoint for the finance advisor agent."""
-    agent = FinanceAdvisor()
+    section = config.get("finance_advisor", {}) if config else {}
+    bootstrap = section.get("bootstrap_servers", "localhost:9092")
+    agent = FinanceAdvisor(bootstrap_servers=bootstrap)
     await asyncio.to_thread(agent.run)
 
 

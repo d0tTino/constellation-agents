@@ -24,6 +24,11 @@ value = cfg.get("some_key")
 
 Sending `SIGHUP` causes `cfg` to reload the file at runtime.
 
+All agents load configuration through the same mechanism. Specify the path
+with the `--config` command line option or `CONFIG_PATH` environment
+variable. If omitted, agents default to a `config.toml` file in the current
+directory.
+
 ## FinRL Strategist
 
 The package `agents.finrl_strategist` integrates the [FinRL](https://github.com/AI4Finance-Foundation/FinRL) framework.
