@@ -60,9 +60,26 @@ class BaseAgent:
             start_http_server(metrics_port)
             _METRICS_STARTED.add(metrics_port)
 
-    def emit(self, topic: str, event: dict[str, Any]) -> None:
-        """Emit an event to a Kafka topic."""
-        logger.debug("Emitting event to %s: %s", topic, event)
+    def emit(
+        self,
+        topic: str,
+        event: dict[str, Any],
+        *,
+        user_id: str,
+        group_id: str | None = None,
+    ) -> None:
+        """Emit an event to a Kafka topic.
+
+        The ``user_id`` is required; a ``ValueError`` is raised when it is
+        missing or falsy. ``group_id`` is accepted for future use.
+        """
+        if not user_id:
+            raise ValueError("user_id is required")
+
+        if group_id is not None:  # pragma: no cover - reserved for future use
+            logger.debug("group_id provided: %s", group_id)
+
+        logger.debug("Emitting event to %s for user %s: %s", topic, user_id, event)
         self.producer.send(topic, event)
         self.producer.flush()
 
