@@ -67,12 +67,20 @@ class CryptoBot:
 
         # Execute the Freqtrade engine. ``Worker`` may expose ``run`` or
         # ``start`` depending on the installed version. Call whichever exists.
-        if hasattr(self.engine, "run"):
-            self.engine.run()
-        elif hasattr(self.engine, "start"):
-            self.engine.start()
+        try:
+            if hasattr(self.engine, "run"):
+                self.engine.run()
+            elif hasattr(self.engine, "start"):
+                self.engine.start()
 
-        # After execution publish basic metrics.
-        positions = getattr(self.engine, "positions", [])
-        profit = getattr(self.engine, "profit", 0.0)
-        emit_event("TradeSummary", {"positions": positions, "profit": profit})
+            # After execution publish basic metrics.
+            positions = getattr(self.engine, "positions", [])
+            profit = getattr(self.engine, "profit", 0.0)
+            emit_event("TradeSummary", {"positions": positions, "profit": profit})
+        finally:
+            # Ensure the engine shuts down cleanly even if execution fails.
+            shutdown = getattr(self.engine, "stop", None) or getattr(
+                self.engine, "close", None
+            )
+            if shutdown:
+                shutdown()
