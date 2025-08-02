@@ -62,4 +62,24 @@ def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
     return response.json()
 
 
-__all__ = ["emit_event", "ume_query", "BaseAgent"]
+def check_permission(user_id: str, action: str, group_id: str | None = None) -> bool:
+    """Return whether a user is allowed to perform an action.
+
+    The permission service is queried via :func:`ume_query`.  The endpoint is
+    taken from the ``UME_PERMISSION_ENDPOINT`` environment variable and
+    defaults to ``"http://localhost:8000/permissions/check"``.  When the
+    ``OPA_SIDECAR_URL`` variable is set, requests are routed through that
+    sidecar as described in :func:`ume_query`.
+    """
+
+    endpoint = os.getenv(
+        "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
+    )
+    payload: dict[str, Any] = {"user_id": user_id, "action": action}
+    if group_id is not None:
+        payload["group_id"] = group_id
+    response = ume_query(endpoint, payload)
+    return bool(response.get("allow"))
+
+
+__all__ = ["emit_event", "ume_query", "check_permission", "BaseAgent"]
