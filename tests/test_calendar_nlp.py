@@ -42,6 +42,32 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     assert kwargs["user_id"] == "u1"
 
 
+def test_emitted_event_consumed_by_downstream() -> None:
+    """Integration-style test verifying downstream consumption of events."""
+
+    downstream = MagicMock()
+
+    class MockProducer:
+        def send(self, topic, event):  # type: ignore[no-untyped-def]
+            downstream(topic, event)
+
+        def flush(self):  # type: ignore[no-untyped-def]
+            pass
+
+    llm = MagicMock(return_value={"title": "Lunch", "start_time": "s", "end_time": "e"})
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarNLPAgent(llm)
+
+    agent.handle_event({"user_id": "u1", "text": "Lunch"})
+
+    downstream.assert_called_once()
+    topic, payload = downstream.call_args[0]
+    assert topic == "calendar.event.create_request"
+    assert payload["title"] == "Lunch"
+
+
 def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
     agent_instance.handle_event({"text": "No user"})
