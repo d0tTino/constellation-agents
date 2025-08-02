@@ -5,6 +5,8 @@ from types import ModuleType
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agents.config import Config
@@ -67,6 +69,47 @@ def test_run_emits_metrics(tmp_path):
             "TradeSummary",
             {"positions": engine.positions, "profit": engine.profit},
         )
+
+
+def test_run_calls_stop_on_error(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    bot = CryptoBot(Config(cfg_file))
+    engine = MagicMock()
+    engine.run.side_effect = RuntimeError("boom")
+    engine.stop = MagicMock()
+    bot.engine = engine
+    with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(
+        bot, "init_engine"
+    ), patch("agents.crypto_bot.emit_event") as emit:
+        with pytest.raises(RuntimeError):
+            bot.run()
+    engine.stop.assert_called_once()
+    emit.assert_not_called()
+
+
+def test_run_calls_close_on_error(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    engine = MagicMock(spec=["start", "close"])
+    engine.start.side_effect = RuntimeError("boom")
+    engine.close = MagicMock()
+
+    bot = CryptoBot(Config(cfg_file))
+    bot.engine = engine
+    with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(
+        bot, "init_engine"
+    ), patch("agents.crypto_bot.emit_event") as emit:
+        with pytest.raises(RuntimeError):
+            bot.run()
+    engine.close.assert_called_once()
+    emit.assert_not_called()
 
 
 def test_run_emits_metrics_when_start_used(tmp_path):
