@@ -21,14 +21,19 @@ def test_watcher_emits_for_similar_doc() -> None:
          patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"), \
-         patch.object(EurekaWatcher, "emit") as mock_emit:
-        watcher = EurekaWatcher("http://example")
+         patch.object(EurekaWatcher, "emit") as mock_emit, \
+         patch("agents.eureka_watcher.check_permission", return_value=True) as cp:
+        watcher = EurekaWatcher("http://example", user_id="u1")
         watcher.handle_event(event)
+        cp.assert_called_once_with("u1", "suggest", None)
         mock_emit.assert_called_once()
-        args, _ = mock_emit.call_args
+        args, kwargs = mock_emit.call_args
         assert args[0] == "ume.events.suggested_task"
-        assert args[1]["idea"] == "idea1"
-        assert args[1]["doc"] == "doc1"
+        payload = args[1]
+        assert payload["idea"] == "idea1"
+        assert payload["doc"] == "doc1"
+        assert payload["user_id"] == "u1"
+        assert kwargs["user_id"] == "u1"
 
 
 def test_watcher_ignores_dissimilar_doc() -> None:
@@ -39,7 +44,9 @@ def test_watcher_ignores_dissimilar_doc() -> None:
          patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"), \
-         patch.object(EurekaWatcher, "emit") as mock_emit:
-        watcher = EurekaWatcher("http://example")
+         patch.object(EurekaWatcher, "emit") as mock_emit, \
+         patch("agents.eureka_watcher.check_permission", return_value=True) as cp:
+        watcher = EurekaWatcher("http://example", user_id="u1")
         watcher.handle_event(event)
+        cp.assert_called_once_with("u1", "suggest", None)
         mock_emit.assert_not_called()
