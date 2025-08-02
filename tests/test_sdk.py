@@ -1,4 +1,4 @@
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch, call
 import pytest
 import agents.sdk.base as base
 import sys
@@ -11,9 +11,9 @@ from prometheus_client import CollectorRegistry, Counter, Histogram
 
 @pytest.fixture(autouse=True)
 def reset_metrics_started():
-    base._METRICS_STARTED = False
+    base._METRICS_STARTED = set()
     yield
-    base._METRICS_STARTED = False
+    base._METRICS_STARTED = set()
 
 
 def test_emit_event_uses_kafka_producer():
@@ -151,3 +151,29 @@ def test_base_agent_accepts_multiple_topics():
             group_id=None,
             value_deserializer=ANY,
         )
+
+
+def test_multiple_agents_start_metrics_on_distinct_ports():
+    with patch("agents.sdk.base.KafkaConsumer"), patch(
+        "agents.sdk.base.KafkaProducer"
+    ), patch("agents.sdk.base.start_http_server") as mock_start:
+
+        class AgentA(sdk.BaseAgent):
+            def __init__(self):
+                super().__init__("topic", metrics_port=8001)
+
+            def handle_event(self, event):  # pragma: no cover - unused
+                pass
+
+        class AgentB(sdk.BaseAgent):
+            def __init__(self):
+                super().__init__("topic", metrics_port=8002)
+
+            def handle_event(self, event):  # pragma: no cover - unused
+                pass
+
+        AgentA()
+        AgentB()
+        mock_start.assert_has_calls([call(8001), call(8002)], any_order=True)
+        assert mock_start.call_count == 2
+
