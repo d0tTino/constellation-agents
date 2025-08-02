@@ -44,9 +44,11 @@ def percentile_zscore(history: Sequence[float], value: float) -> float:
 class FinanceAdvisor(BaseAgent):
     """Agent that flags anomalous transactions using percentile z-scores."""
 
+    topic_subscriptions = ["ume.events.transaction.created"]
+
     def __init__(self, *, bootstrap_servers: str = "localhost:9092") -> None:
         super().__init__(
-            "ume.events.transaction.created",
+            self.topic_subscriptions,
             bootstrap_servers=bootstrap_servers,
             group_id="finance-advisor",
         )

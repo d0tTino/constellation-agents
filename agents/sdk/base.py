@@ -29,15 +29,20 @@ class BaseAgent:
 
     def __init__(
         self,
-        topic: str,
+        topic_subscriptions: str | list[str] | tuple[str, ...],
         *,
         bootstrap_servers: str = "localhost:9092",
         group_id: str | None = None,
         metrics_port: int | None = 8000,
     ) -> None:
-        self.topic = topic
+        if isinstance(topic_subscriptions, str):
+            self.topic_subscriptions = [topic_subscriptions]
+        else:
+            self.topic_subscriptions = list(topic_subscriptions)
+        # Keep the legacy ``topic`` attribute for backward compatibility.
+        self.topic = self.topic_subscriptions[0]
         self.consumer = KafkaConsumer(
-            topic,
+            *self.topic_subscriptions,
             bootstrap_servers=bootstrap_servers,
             group_id=group_id,
             value_deserializer=lambda m: json.loads(m.decode("utf-8")),
@@ -73,7 +78,8 @@ class BaseAgent:
 
     def run(self) -> None:
         """Start consuming events and dispatching them."""
-        logger.info("Starting agent on topic %s", self.topic)
+        topics = ", ".join(self.topic_subscriptions)
+        logger.info("Starting agent on topics %s", topics)
         for message in self.consumer:
             logger.debug("Received message: %s", message.value)
             self.dispatch(message.value)

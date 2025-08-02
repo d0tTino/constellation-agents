@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 import pytest
 import agents.sdk.base as base
 import sys
@@ -128,3 +128,26 @@ def test_metrics_increment_when_processing_events():
         )
         assert msg_val == 1.0
         assert dur_count == 1.0
+
+
+def test_base_agent_accepts_multiple_topics():
+    with patch("agents.sdk.base.KafkaConsumer") as mock_consumer_cls, \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        mock_consumer_cls.return_value = MagicMock(__iter__=lambda self: iter([]))
+
+        class TestAgent(sdk.BaseAgent):
+            def __init__(self):
+                super().__init__(["t1", "t2"], metrics_port=None)
+
+            def handle_event(self, event):  # pragma: no cover - unused
+                pass
+
+        TestAgent()
+        mock_consumer_cls.assert_called_once_with(
+            "t1",
+            "t2",
+            bootstrap_servers="localhost:9092",
+            group_id=None,
+            value_deserializer=ANY,
+        )
