@@ -6,6 +6,7 @@ from math import sqrt
 from typing import Any, Sequence
 
 from ..sdk import BaseAgent, ume_query
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +59,11 @@ class EurekaWatcher(BaseAgent):
                 )
 
 
-async def main() -> None:
-    watcher = EurekaWatcher("http://localhost:8000/docs")
+async def main(config: Config | None = None) -> None:
+    section = config.get("eureka_watcher", {}) if config else {}
+    endpoint = section.get("docs_endpoint", "http://localhost:8000/docs")
+    bootstrap = section.get("bootstrap_servers", "localhost:9092")
+    watcher = EurekaWatcher(endpoint, bootstrap_servers=bootstrap)
     await asyncio.to_thread(watcher.run)
 
 

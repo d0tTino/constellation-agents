@@ -1,17 +1,29 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
+import os
+from pathlib import Path
 
-from . import FinRLStrategist
+from . import main as run_main
+from ..config import Config
 
 
-async def _run() -> None:
-    strategist = FinRLStrategist(["SPY"])
-    await asyncio.to_thread(strategist.run_weekly)
+def cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        default=os.environ.get("CONFIG_PATH", "config.toml"),
+        help="Path to configuration file",
+    )
+    return parser.parse_args()
 
 
 def main() -> None:
-    asyncio.run(_run())
+    args = cli()
+    cfg_path = Path(args.config)
+    cfg = Config(cfg_path) if cfg_path.exists() else None
+    asyncio.run(run_main(cfg))
 
 
 if __name__ == "__main__":

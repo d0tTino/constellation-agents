@@ -1,5 +1,22 @@
 from . import main
+import argparse
 import asyncio
+import os
+from pathlib import Path
+from ..config import Config
+
+def cli() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        default=os.environ.get("CONFIG_PATH", "config.toml"),
+        help="Path to configuration file",
+    )
+    return parser.parse_args()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = cli()
+    cfg_path = Path(args.config)
+    cfg = Config(cfg_path) if cfg_path.exists() else None
+    asyncio.run(main(cfg))

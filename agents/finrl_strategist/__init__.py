@@ -1,11 +1,13 @@
 """FinRL-based strategist with weekly scheduling and 30-day backtests."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Any
 
 from ..sdk import emit_event
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -73,4 +75,11 @@ class FinRLStrategist:
         return result
 
 
-__all__ = ["FinRLStrategist"]
+async def main(config: Config | None = None) -> None:
+    section = config.get("finrl_strategist", {}) if config else {}
+    tickers = section.get("tickers", ["SPY"])
+    strategist = FinRLStrategist(list(tickers))
+    await asyncio.to_thread(strategist.run_weekly)
+
+
+__all__ = ["FinRLStrategist", "main"]
