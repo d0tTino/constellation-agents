@@ -23,7 +23,7 @@ def test_finance_advisor_entrypoint(tmp_path: Path) -> None:
         "            raise StopIteration\n"
         "        self._sent = True\n"
         "        print('event consumed', flush=True)\n"
-        "        return DummyMessage({'amount': 1})\n"
+        "        return DummyMessage({'amount': 1, 'user_id': 'u1'})\n"
         "\n"
         "class KafkaProducer:\n"
         "    def __init__(self, *args, **kwargs):\n"
@@ -32,6 +32,17 @@ def test_finance_advisor_entrypoint(tmp_path: Path) -> None:
         "        pass\n"
         "    def flush(self):\n"
         "        pass\n"
+    )
+
+    (tmp_path / "requests").mkdir()
+    (tmp_path / "requests" / "__init__.py").write_text(
+        "class Response:\n"
+        "    def raise_for_status(self):\n"
+        "        pass\n"
+        "    def json(self):\n"
+        "        return {'allow': True}\n"
+        "def post(*args, **kwargs):\n"
+        "    return Response()\n"
     )
 
     (tmp_path / "prometheus_client").mkdir()
