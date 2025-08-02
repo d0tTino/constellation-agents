@@ -90,3 +90,81 @@ def test_eureka_watcher_entrypoint(tmp_path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_calendar_nlp_entrypoint(tmp_path: Path) -> None:
+    (tmp_path / "kafka").mkdir()
+    (tmp_path / "kafka" / "__init__.py").write_text(
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n"
+        "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
+    )
+    (tmp_path / "prometheus_client").mkdir()
+    (tmp_path / "prometheus_client" / "__init__.py").write_text(
+        "def start_http_server(*a, **k):\n    pass\n"
+        "class Counter:\n"
+        "    def __init__(self,*a,**k):\n        pass\n"
+        "    def labels(self, **k):\n"
+        "        class L:\n"
+        "            def inc(self,*a,**k):\n                pass\n"
+        "        return L()\n"
+        "class Histogram:\n"
+        "    def __init__(self,*a,**k):\n        pass\n"
+        "    def labels(self, **k):\n"
+        "        class L:\n"
+        "            def observe(self,*a,**k):\n                pass\n"
+        "        return L()\n"
+    )
+    (tmp_path / "requests").mkdir()
+    (tmp_path / "requests" / "__init__.py").write_text(
+        "def post(*a,**k):\n    class R:\n        def raise_for_status(self):\n            pass\n        def json(self):\n            return {}\n    return R()\n"
+    )
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
+    result = subprocess.run(
+        [sys.executable, "-m", "agents.calendar_nlp"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_explainability_agent_entrypoint(tmp_path: Path) -> None:
+    (tmp_path / "kafka").mkdir()
+    (tmp_path / "kafka" / "__init__.py").write_text(
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n"
+        "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
+    )
+    (tmp_path / "prometheus_client").mkdir()
+    (tmp_path / "prometheus_client" / "__init__.py").write_text(
+        "def start_http_server(*a, **k):\n    pass\n"
+        "class Counter:\n"
+        "    def __init__(self,*a,**k):\n        pass\n"
+        "    def labels(self, **k):\n"
+        "        class L:\n"
+        "            def inc(self,*a,**k):\n                pass\n"
+        "        return L()\n"
+        "class Histogram:\n"
+        "    def __init__(self,*a,**k):\n        pass\n"
+        "    def labels(self, **k):\n"
+        "        class L:\n"
+        "            def observe(self,*a,**k):\n                pass\n"
+        "        return L()\n"
+    )
+    (tmp_path / "requests").mkdir()
+    (tmp_path / "requests" / "__init__.py").write_text(
+        "def get(*a,**k):\n    class R:\n        def raise_for_status(self):\n            pass\n        def json(self):\n            return {}\n    return R()\n"
+    )
+    env = os.environ.copy()
+    repo_root = Path(__file__).resolve().parents[1]
+    env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
+    result = subprocess.run(
+        [sys.executable, "-m", "agents.explainability_agent"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

@@ -43,6 +43,35 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
     assert kwargs["user_id"] == "user1"
 
 
+def test_event_consumed_by_downstream() -> None:
+    downstream = MagicMock()
+
+    class MockProducer:
+        def send(self, topic, event):  # type: ignore[no-untyped-def]
+            downstream(topic, event)
+
+        def flush(self):  # type: ignore[no-untyped-def]
+            pass
+
+    response = {
+        "actions": [{"name": "invest", "pros": ["growth"], "cons": ["risk"]}]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
+         patch("agents.sdk.base.start_http_server"), \
+         patch("agents.explainability_agent.requests.get", return_value=mock_resp):
+        agent = ExplainabilityAgent("http://engine")
+        agent.handle_event({"analysis_id": "123", "user_id": "u1"})
+    downstream.assert_called_once()
+    topic, payload = downstream.call_args[0]
+    assert topic == "finance.explain.result"
+    assert payload["analysis_id"] == "123"
+
+
 def test_explainability_agent_missing_analysis_id(agent: ExplainabilityAgent) -> None:
     event = {"user_id": "user1"}
     with patch("agents.explainability_agent.requests.get") as mock_get:
