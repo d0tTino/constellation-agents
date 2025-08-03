@@ -71,16 +71,18 @@ class BaseAgent:
         """Emit an event to a Kafka topic.
 
         The ``user_id`` is required; a ``ValueError`` is raised when it is
-        missing or falsy. ``group_id`` is accepted for future use.
+        missing or falsy. When provided, ``group_id`` is added to the payload.
         """
         if not user_id:
             raise ValueError("user_id is required")
 
-        if group_id is not None:  # pragma: no cover - reserved for future use
-            logger.debug("group_id provided: %s", group_id)
+        payload = event.copy()
+        payload["user_id"] = user_id
+        if group_id is not None:
+            payload["group_id"] = group_id
 
-        logger.debug("Emitting event to %s for user %s: %s", topic, user_id, event)
-        self.producer.send(topic, event)
+        logger.debug("Emitting event to %s for user %s: %s", topic, user_id, payload)
+        self.producer.send(topic, payload)
         self.producer.flush()
 
     def dispatch(self, event: dict[str, Any]) -> None:
