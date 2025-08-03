@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import requests
 
-from ..sdk import BaseAgent
+from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,9 @@ class CalendarNLPAgent(BaseAgent):
         if not text or not user_id:
             logger.debug("Invalid event: %s", event)
             return
+        if not check_permission(user_id, "calendar:create"):
+            logger.info("Permission denied for user %s", user_id)
+            return
         result = self.llm(text)
         calendar_event = {
             "title": result.get("title"),
@@ -46,6 +49,7 @@ class CalendarNLPAgent(BaseAgent):
             "description": result.get("description"),
             "is_all_day": result.get("is_all_day"),
             "recurrence": result.get("recurrence"),
+            "user_id": user_id,
         }
         self.emit(
             "calendar.event.create_request",

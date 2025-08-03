@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -32,13 +31,16 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
 def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
     event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
-    agent_instance.handle_event(event)
+    with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
+        agent_instance.handle_event(event)
+    mock_perm.assert_called_once_with("u1", "calendar:create")
     llm.assert_called_once_with("Lunch with Sam at noon")
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.emit.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
     assert topic == "calendar.event.create_request"
     assert payload["title"] == "Lunch"
+    assert payload["user_id"] == "u1"
     assert kwargs["user_id"] == "u1"
 
 
@@ -60,16 +62,29 @@ def test_emitted_event_consumed_by_downstream() -> None:
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarNLPAgent(llm)
 
-    agent.handle_event({"user_id": "u1", "text": "Lunch"})
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent.handle_event({"user_id": "u1", "text": "Lunch"})
 
     downstream.assert_called_once()
     topic, payload = downstream.call_args[0]
     assert topic == "calendar.event.create_request"
     assert payload["title"] == "Lunch"
+    assert payload["user_id"] == "u1"
 
 
 def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    agent_instance.handle_event({"text": "No user"})
+    with patch("agents.calendar_nlp.check_permission") as mock_perm:
+        agent_instance.handle_event({"text": "No user"})
+    mock_perm.assert_not_called()
+    llm.assert_not_called()
+    agent_instance.emit.assert_not_called()
+
+
+def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    with patch("agents.calendar_nlp.check_permission", return_value=False) as mock_perm:
+        agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
+    mock_perm.assert_called_once_with("u1", "calendar:create")
     llm.assert_not_called()
     agent_instance.emit.assert_not_called()
