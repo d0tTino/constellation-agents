@@ -20,9 +20,9 @@ def test_emit_event_uses_kafka_producer():
     with patch("agents.sdk.KafkaProducer") as mock_producer_cls:
         mock_producer = MagicMock()
         mock_producer_cls.return_value = mock_producer
-        sdk.emit_event("topic", {"a": 1}, user_id="u1")
+        sdk.emit_event("topic", {"a": 1}, user_id="u1", group_id="g1")
         mock_producer.send.assert_called_once_with(
-            "topic", {"a": 1, "user_id": "u1"}
+            "topic", {"a": 1, "user_id": "u1", "group_id": "g1"}
         )
         mock_producer.flush.assert_called_once()
         mock_producer.close.assert_called_once()
@@ -118,6 +118,20 @@ def test_base_agent_emit_without_user_id_raises():
         agent = sdk.BaseAgent("topic", metrics_port=None)
         with pytest.raises(ValueError):
             agent.emit("topic", {"a": 1}, user_id="")
+
+
+def test_base_agent_emit_injects_user_and_group():
+    with patch("agents.sdk.base.KafkaConsumer"), patch(
+        "agents.sdk.base.KafkaProducer"
+    ) as mock_prod_cls, patch("agents.sdk.base.start_http_server"):
+        mock_prod = MagicMock()
+        mock_prod_cls.return_value = mock_prod
+        agent = sdk.BaseAgent("topic", metrics_port=None)
+        agent.emit("topic", {"a": 1}, user_id="u1", group_id="g1")
+        mock_prod.send.assert_called_once_with(
+            "topic", {"a": 1, "user_id": "u1", "group_id": "g1"}
+        )
+        mock_prod.flush.assert_called_once()
 
 
 def test_metrics_increment_when_processing_events():
