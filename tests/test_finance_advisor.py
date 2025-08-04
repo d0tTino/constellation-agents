@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agents.finance_advisor import FinanceAdvisor, percentile, percentile_zscore
@@ -61,7 +61,8 @@ def test_emit_on_high_zscore(advisor: FinanceAdvisor) -> None:
             advisor.handle_event({"amount": amt, "user_id": "u1", "group_id": "g1"})
         advisor.emit.assert_not_called()
         advisor.handle_event({"amount": 1000, "user_id": "u1", "group_id": "g1"})
-    assert cp.call_count == len(normal) + 1
+    assert cp.call_count == len(normal) + 2
+    assert cp.call_args_list[-2:] == [call("u1", "read", "g1"), call("u1", "write", "g1")]
     advisor.emit.assert_called_once()
     topic, payload = advisor.emit.call_args[0]
     kwargs = advisor.emit.call_args[1]
@@ -81,7 +82,8 @@ def test_emit_on_low_zscore(advisor: FinanceAdvisor) -> None:
             advisor.handle_event({"amount": amt, "user_id": "u1"})
         advisor.emit.assert_not_called()
         advisor.handle_event({"amount": -1000, "user_id": "u1"})
-    assert cp.call_count == len(normal) + 1
+    assert cp.call_count == len(normal) + 2
+    assert cp.call_args_list[-2:] == [call("u1", "read", None), call("u1", "write", None)]
     advisor.emit.assert_called_once()
     topic, payload = advisor.emit.call_args[0]
     kwargs = advisor.emit.call_args[1]
