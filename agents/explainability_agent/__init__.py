@@ -6,7 +6,7 @@ from typing import Any
 
 import requests
 
-from ..sdk import BaseAgent
+from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,9 @@ class ExplainabilityAgent(BaseAgent):
         user_id = event.get("user_id")
         if not analysis_id or not user_id:
             logger.debug("Missing analysis_id or user_id: %s", event)
+            return
+        if not check_permission(user_id, "analysis:read"):
+            logger.info("Permission denied for user %s", user_id)
             return
         try:
             resp = requests.get(
