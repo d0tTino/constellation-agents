@@ -24,7 +24,7 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarNLPAgent(llm)
-    agent.emit = MagicMock()
+    agent.emit = MagicMock(wraps=agent.emit)
     return agent, llm
 
 
@@ -33,15 +33,36 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     event = {"user_id": "u1", "group_id": "g1", "text": "Lunch with Sam at noon"}
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
-    mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
+    mock_perm.assert_called_once_with("u1", "calendar:create", None)
+
     llm.assert_called_once_with("Lunch with Sam at noon")
     agent_instance.emit.assert_called_once()
-    topic, payload = agent_instance.emit.call_args[0]
+    topic, payload = agent_instance.producer.send.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
     assert topic == "calendar.event.create_request"
     assert payload["event"]["title"] == "Lunch"
-    assert "user_id" not in payload["event"]
+    assert payload["user_id"] == "u1"
+    assert "group_id" not in payload
     assert kwargs["user_id"] == "u1"
+    assert kwargs["group_id"] is None
+
+
+def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    event = {"user_id": "u1", "text": "Lunch with Sam at noon", "group_id": "g1"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
+        agent_instance.handle_event(event)
+    mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
+    llm.assert_called_once_with("Lunch with Sam at noon")
+    agent_instance.emit.assert_called_once()
+    topic, payload = agent_instance.producer.send.call_args[0]
+    kwargs = agent_instance.emit.call_args[1]
+    assert topic == "calendar.event.create_request"
+    assert payload["event"]["title"] == "Lunch"
+    assert payload["user_id"] == "u1"
+    assert payload["group_id"] == "g1"
+    assert kwargs["user_id"] == "u1"
+
     assert kwargs["group_id"] == "g1"
 
 
@@ -71,7 +92,8 @@ def test_emitted_event_consumed_by_downstream() -> None:
     assert topic == "calendar.event.create_request"
     assert payload["event"]["title"] == "Lunch"
     assert payload["user_id"] == "u1"
-    assert payload["group_id"] == "g1"
+    assert "group_id" not in payload
+
 
 
 def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
@@ -86,7 +108,8 @@ def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
 def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
     with patch("agents.calendar_nlp.check_permission", return_value=False) as mock_perm:
-        agent_instance.handle_event({"user_id": "u1", "group_id": "g1", "text": "Lunch"})
-    mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
+        agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
+    mock_perm.assert_called_once_with("u1", "calendar:create", None)
+
     llm.assert_not_called()
     agent_instance.emit.assert_not_called()
