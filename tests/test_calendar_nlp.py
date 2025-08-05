@@ -30,10 +30,11 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
 
 def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
+    event = {"user_id": "u1", "group_id": "g1", "text": "Lunch with Sam at noon"}
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
+
     llm.assert_called_once_with("Lunch with Sam at noon")
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
@@ -61,6 +62,7 @@ def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicM
     assert payload["user_id"] == "u1"
     assert payload["group_id"] == "g1"
     assert kwargs["user_id"] == "u1"
+
     assert kwargs["group_id"] == "g1"
 
 
@@ -83,7 +85,7 @@ def test_emitted_event_consumed_by_downstream() -> None:
         agent = CalendarNLPAgent(llm)
 
     with patch("agents.calendar_nlp.check_permission", return_value=True):
-        agent.handle_event({"user_id": "u1", "text": "Lunch"})
+        agent.handle_event({"user_id": "u1", "group_id": "g1", "text": "Lunch"})
 
     downstream.assert_called_once()
     topic, payload = downstream.call_args[0]
@@ -91,6 +93,7 @@ def test_emitted_event_consumed_by_downstream() -> None:
     assert payload["event"]["title"] == "Lunch"
     assert payload["user_id"] == "u1"
     assert "group_id" not in payload
+
 
 
 def test_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
@@ -107,5 +110,6 @@ def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     with patch("agents.calendar_nlp.check_permission", return_value=False) as mock_perm:
         agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
+
     llm.assert_not_called()
     agent_instance.emit.assert_not_called()

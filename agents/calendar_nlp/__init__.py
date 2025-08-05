@@ -36,6 +36,7 @@ class CalendarNLPAgent(BaseAgent):
         user_id = event.get("user_id")
         group_id = event.get("group_id")
         if not text or not user_id:
+
             logger.debug("Invalid event: %s", event)
             return
         if not check_permission(user_id, "calendar:create", group_id):
