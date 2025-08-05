@@ -34,10 +34,11 @@ class CalendarNLPAgent(BaseAgent):
         """Handle a natural language calendar request."""
         text = event.get("text")
         user_id = event.get("user_id")
-        if not text or not user_id:
+        group_id = event.get("group_id")
+        if not text or not user_id or not group_id:
             logger.debug("Invalid event: %s", event)
             return
-        if not check_permission(user_id, "calendar:create"):
+        if not check_permission(user_id, "calendar:create", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
         result = self.llm(text)
@@ -49,12 +50,12 @@ class CalendarNLPAgent(BaseAgent):
             "description": result.get("description"),
             "is_all_day": result.get("is_all_day"),
             "recurrence": result.get("recurrence"),
-            "user_id": user_id,
         }
         self.emit(
             "calendar.event.create_request",
-            calendar_event,
+            {"event": calendar_event},
             user_id=user_id,
+            group_id=group_id,
         )
         logger.info("Emitted calendar event for user %s", user_id)
 
