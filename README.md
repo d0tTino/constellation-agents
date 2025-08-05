@@ -73,20 +73,23 @@ Translates natural language requests into structured calendar events.
 - Incoming `calendar.nl.request`
 
   ```json
-  {"text": "Lunch with Sam at noon", "user_id": "u1"}
+  {"text": "Lunch with Sam at noon", "user_id": "u1", "group_id": "g1"}
   ```
 
 - Outgoing `calendar.event.create_request`
 
   ```json
   {
-    "title": "Lunch",
-    "start_time": "2024-01-01T12:00:00",
-    "end_time": "2024-01-01T13:00:00",
-    "location": "Cafe",
-    "description": "Lunch with Sam",
-    "is_all_day": false,
-    "recurrence": null
+    "group_id": "g1",
+    "event": {
+      "title": "Lunch",
+      "start_time": "2024-01-01T12:00:00",
+      "end_time": "2024-01-01T13:00:00",
+      "location": "Cafe",
+      "description": "Lunch with Sam",
+      "is_all_day": false,
+      "recurrence": null
+    }
   }
   ```
 
@@ -95,8 +98,13 @@ Translates natural language requests into structured calendar events.
 ```python
 from agents.sdk import check_permission
 
-if check_permission(user_id, "calendar:create"):
-    agent.emit("calendar.event.create_request", calendar_event, user_id=user_id)
+if check_permission(user_id, "calendar:create", group_id):
+    agent.emit(
+        "calendar.event.create_request",
+        {"group_id": group_id, "event": calendar_event},
+        user_id=user_id,
+        group_id=group_id,
+    )
 ```
 
 ## ExplainabilityAgent
@@ -181,8 +189,8 @@ if check_permission(user_id, "write", group_id):
 
 | Topic | Produced By | Consumed By | Required identifiers |
 | ----- | ----------- | ----------- | -------------------- |
-| `calendar.nl.request` | client applications | CalendarNLPAgent | `user_id`, `text` |
-| `calendar.event.create_request` | CalendarNLPAgent | calendar service | `user_id`, event fields |
+| `calendar.nl.request` | client applications | CalendarNLPAgent | `user_id`, `text`, `group_id` (optional) |
+| `calendar.event.create_request` | CalendarNLPAgent | calendar service | `user_id`, `group_id` (optional), event fields |
 | `finance.explain.request` | analytics service | ExplainabilityAgent | `user_id`, `analysis_id` |
 | `finance.explain.result` | ExplainabilityAgent | clients | `user_id`, `analysis_id` |
 | `plaid.transactions.sync` | scheduler | PlaidSyncAgent | `user_id`, `group_id` (optional) |
