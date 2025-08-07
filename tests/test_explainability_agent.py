@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -126,5 +127,17 @@ def test_permission_denied(agent: ExplainabilityAgent) -> None:
         agent.handle_event(event)
     mock_perm.assert_called_once_with("user1", "analysis:read", None)
     mock_get.assert_not_called()
+    agent.emit.assert_not_called()
+
+
+def test_request_exception_logged(
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    with patch("agents.explainability_agent.check_permission", return_value=True), \
+         patch("agents.explainability_agent.requests.get", side_effect=Exception("boom")):
+        with caplog.at_level(logging.ERROR):
+            agent.handle_event(event)
+    assert "Failed to fetch actions" in caplog.text
     agent.emit.assert_not_called()
 
