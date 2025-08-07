@@ -58,9 +58,6 @@ class PlaidSync(BaseAgent):
             return transactions
         for tx in transactions:
             payload = tx.copy()
-            payload["user_id"] = user_id
-            if group_id is not None:
-                payload["group_id"] = group_id
             self.emit(
                 "plaid.transaction.synced",
                 payload,
