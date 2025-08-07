@@ -5,8 +5,32 @@ import logging
 import time
 from typing import Any
 
-from prometheus_client import Counter, Histogram, start_http_server
-from kafka import KafkaConsumer, KafkaProducer
+try:  # pragma: no cover - optional metrics dependency
+    from prometheus_client import Counter, Histogram, start_http_server
+except ModuleNotFoundError:  # pragma: no cover - prometheus not installed
+    class _NullMetric:  # pylint: disable=too-few-public-methods
+        def labels(self, **kwargs):  # type: ignore[unused-argument]
+            return self
+
+        def inc(self, *args, **kwargs):  # type: ignore[unused-argument]
+            pass
+
+        def observe(self, *args, **kwargs):  # type: ignore[unused-argument]
+            pass
+
+    def Counter(*args, **kwargs):  # type: ignore
+        return _NullMetric()
+
+    def Histogram(*args, **kwargs):  # type: ignore
+        return _NullMetric()
+
+    def start_http_server(*args, **kwargs):  # type: ignore
+        pass
+
+try:  # pragma: no cover - optional dependency
+    from kafka import KafkaConsumer, KafkaProducer  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - kafka library not installed
+    KafkaConsumer = KafkaProducer = None  # type: ignore[assignment]
 
 # Track which metric ports have been initialized to avoid conflicts when
 # multiple agent instances are created. Using a set allows metrics servers to

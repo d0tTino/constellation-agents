@@ -30,7 +30,7 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
 
 def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    event = {"user_id": "u1", "group_id": "g1", "text": "Lunch with Sam at noon"}
+    event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
@@ -92,7 +92,7 @@ def test_emitted_event_consumed_by_downstream() -> None:
     assert topic == "calendar.event.create_request"
     assert payload["event"]["title"] == "Lunch"
     assert payload["user_id"] == "u1"
-    assert "group_id" not in payload
+    assert payload["group_id"] == "g1"
 
 
 

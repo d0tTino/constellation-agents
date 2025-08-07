@@ -33,10 +33,11 @@ class ExplainabilityAgent(BaseAgent):
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
         analysis_id = event.get("analysis_id")
         user_id = event.get("user_id")
+        group_id = event.get("group_id")
         if not analysis_id or not user_id:
             logger.debug("Missing analysis_id or user_id: %s", event)
             return
-        if not check_permission(user_id, "analysis:read"):
+        if not check_permission(user_id, "analysis:read", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
         try:
@@ -60,6 +61,7 @@ class ExplainabilityAgent(BaseAgent):
             "finance.explain.result",
             payload,
             user_id=user_id,
+            group_id=group_id,
         )
 
 
