@@ -34,10 +34,17 @@ class CalendarSync(BaseAgent):
         """Handle appointment updates from UME."""
         appointment_id = event.get("id")
         start = event.get("time")
-        if appointment_id is None or start is None:
+        user_id = event.get("user_id")
+        group_id = event.get("group_id")
+        if appointment_id is None or start is None or not user_id:
             logger.debug("Invalid UME event: %s", event)
             return
-        payload = {"id": appointment_id, "time": start}
+        if not check_permission(user_id, "read", group_id):
+            logger.info("Read permission denied for %s", user_id)
+            return
+        payload = {"id": appointment_id, "time": start, "user_id": user_id}
+        if group_id is not None:
+            payload["group_id"] = group_id
         for _ in range(2):
             try:
                 response = requests.post(
