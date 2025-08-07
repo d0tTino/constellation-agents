@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any, Callable
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
 
@@ -45,7 +45,14 @@ class CalendarNLPAgent(BaseAgent):
         if not check_permission(user_id, "calendar:create", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
-        now = datetime.now(ZoneInfo(timezone)) if timezone else datetime.utcnow()
+        if timezone:
+            try:
+                now = datetime.now(ZoneInfo(timezone))
+            except ZoneInfoNotFoundError:
+                logger.exception("Failed to find timezone %s", timezone)
+                return
+        else:
+            now = datetime.utcnow()
         payload = {
             "text": text,
             "current_date": now.date().isoformat(),

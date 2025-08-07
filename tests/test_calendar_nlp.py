@@ -107,6 +107,15 @@ def test_parses_event_with_group_and_timezone(agent: tuple[CalendarNLPAgent, Mag
     assert kwargs["group_id"] == "g1"
 
 
+def test_invalid_timezone(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    event = {"user_id": "u1", "text": "Lunch", "timezone": "Invalid/Zone"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event(event)
+    llm.assert_not_called()
+    agent_instance.emit.assert_not_called()
+
+
 def test_emitted_event_consumed_by_downstream() -> None:
     """Integration-style test verifying downstream consumption of events."""
 
