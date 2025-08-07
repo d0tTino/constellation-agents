@@ -1,7 +1,7 @@
 from __future__ import annotations
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -31,11 +31,16 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
 def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
     event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
+
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
 
-    llm.assert_called_once_with("Lunch with Sam at noon")
+    llm.assert_called_once_with({
+        "text": "Lunch with Sam at noon",
+        "current_date": ANY,
+        "timezone": "UTC",
+    })
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
@@ -49,11 +54,20 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
 
 def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    event = {"user_id": "u1", "text": "Lunch with Sam at noon", "group_id": "g1"}
+    event = {
+        "user_id": "u1",
+        "text": "Lunch with Sam at noon",
+        "group_id": "g1",
+        "timezone": "UTC",
+    }
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
-    llm.assert_called_once_with("Lunch with Sam at noon")
+    llm.assert_called_once_with({
+        "text": "Lunch with Sam at noon",
+        "current_date": ANY,
+        "timezone": "UTC",
+    })
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
