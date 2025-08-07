@@ -10,13 +10,16 @@ import pytest
 
 
 @pytest.fixture()
-def advisor() -> FinanceAdvisor:
-    with patch("agents.sdk.base.KafkaConsumer"), \
-         patch("agents.sdk.base.KafkaProducer"), \
-         patch("agents.sdk.base.start_http_server"):
+def advisor() -> tuple[FinanceAdvisor, MagicMock]:
+    with (
+        patch("agents.sdk.base.KafkaConsumer"),
+        patch("agents.sdk.base.KafkaProducer"),
+        patch("agents.sdk.base.start_http_server"),
+    ):
         agent = FinanceAdvisor()
-    agent.emit = MagicMock()
-    return agent
+    agent.producer.send = MagicMock()
+    agent.emit = MagicMock(wraps=agent.emit)
+    return agent, agent.producer.send
 
 
 def test_percentile() -> None:
@@ -54,50 +57,65 @@ def test_percentile_zscore_negative_numbers() -> None:
     assert score > 0
 
 
-def test_emit_on_high_zscore(advisor: FinanceAdvisor) -> None:
+def test_emit_on_high_zscore(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
+    agent, send_mock = advisor
     normal = [100, 105, 95, 100, 102, 98, 101, 99, 103, 97]
     with patch("agents.finance_advisor.check_permission", return_value=True) as cp:
         for amt in normal:
-            advisor.handle_event({"amount": amt, "user_id": "u1", "group_id": "g1"})
-        advisor.emit.assert_not_called()
-        advisor.handle_event({"amount": 1000, "user_id": "u1", "group_id": "g1"})
+            agent.handle_event({"amount": amt, "user_id": "u1", "group_id": "g1"})
+        agent.emit.assert_not_called()
+        agent.handle_event({"amount": 1000, "user_id": "u1", "group_id": "g1"})
     assert cp.call_count == len(normal) + 2
     assert cp.call_args_list[-2:] == [call("u1", "read", "g1"), call("u1", "write", "g1")]
-    advisor.emit.assert_called_once()
-    topic, payload = advisor.emit.call_args[0]
-    kwargs = advisor.emit.call_args[1]
+    agent.emit.assert_called_once()
+    topic, payload = agent.emit.call_args[0]
+    kwargs = agent.emit.call_args[1]
     assert topic == "ume.events.transaction.anomaly"
     assert kwargs["user_id"] == "u1"
     assert kwargs["group_id"] == "g1"
     assert payload["amount"] == 1000
     assert payload["z"] > 3
-    assert payload["user_id"] == "u1"
-    assert payload["group_id"] == "g1"
+    assert "user_id" not in payload
+    assert "group_id" not in payload
+    send_topic, send_payload = send_mock.call_args[0]
+    assert send_topic == "ume.events.transaction.anomaly"
+    assert send_payload["user_id"] == "u1"
+    assert send_payload["group_id"] == "g1"
+    assert send_payload["amount"] == 1000
+    assert send_payload["z"] > 3
 
 
-def test_emit_on_low_zscore(advisor: FinanceAdvisor) -> None:
+def test_emit_on_low_zscore(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
+    agent, send_mock = advisor
     normal = [100, 105, 95, 100, 102, 98, 101, 99, 103, 97]
     with patch("agents.finance_advisor.check_permission", return_value=True) as cp:
         for amt in normal:
-            advisor.handle_event({"amount": amt, "user_id": "u1"})
-        advisor.emit.assert_not_called()
-        advisor.handle_event({"amount": -1000, "user_id": "u1"})
+            agent.handle_event({"amount": amt, "user_id": "u1"})
+        agent.emit.assert_not_called()
+        agent.handle_event({"amount": -1000, "user_id": "u1"})
     assert cp.call_count == len(normal) + 2
     assert cp.call_args_list[-2:] == [call("u1", "read", None), call("u1", "write", None)]
-    advisor.emit.assert_called_once()
-    topic, payload = advisor.emit.call_args[0]
-    kwargs = advisor.emit.call_args[1]
+    agent.emit.assert_called_once()
+    topic, payload = agent.emit.call_args[0]
+    kwargs = agent.emit.call_args[1]
     assert topic == "ume.events.transaction.anomaly"
     assert kwargs["user_id"] == "u1"
     assert kwargs["group_id"] is None
     assert payload["amount"] == -1000
     assert payload["z"] < -3
-    assert payload["user_id"] == "u1"
+    assert "user_id" not in payload
     assert "group_id" not in payload
+    send_topic, send_payload = send_mock.call_args[0]
+    assert send_topic == "ume.events.transaction.anomaly"
+    assert send_payload["user_id"] == "u1"
+    assert "group_id" not in send_payload
+    assert send_payload["amount"] == -1000
+    assert send_payload["z"] < -3
 
 
-def test_permission_denied(advisor: FinanceAdvisor) -> None:
+def test_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
+    agent, _ = advisor
     with patch("agents.finance_advisor.check_permission", return_value=False) as cp:
-        advisor.handle_event({"amount": 10, "user_id": "u1"})
+        agent.handle_event({"amount": 10, "user_id": "u1"})
     cp.assert_called_once_with("u1", "read", None)
-    advisor.emit.assert_not_called()
+    agent.emit.assert_not_called()
