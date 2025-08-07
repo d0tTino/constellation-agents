@@ -30,7 +30,8 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
 
 def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    event = {"user_id": "u1", "text": "Lunch with Sam at noon", "timezone": "UTC"}
+    event = {"user_id": "u1", "text": "Lunch with Sam at noon"}
+
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", None)

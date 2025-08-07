@@ -34,7 +34,7 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
     with patch("agents.explainability_agent.requests.get", return_value=mock_resp) as mock_get, \
          patch("agents.explainability_agent.check_permission", return_value=True) as mock_perm:
         agent.handle_event(event)
-    mock_perm.assert_called_once_with("user1", "analysis:read")
+    mock_perm.assert_called_once_with("user1", "analysis:read", None)
     mock_get.assert_called_once_with("http://engine/analysis/123/actions", timeout=10)
     agent.emit.assert_called_once()
     topic, payload = agent.emit.call_args[0]
@@ -91,7 +91,7 @@ def test_permission_denied(agent: ExplainabilityAgent) -> None:
     with patch("agents.explainability_agent.check_permission", return_value=False) as mock_perm, \
          patch("agents.explainability_agent.requests.get") as mock_get:
         agent.handle_event(event)
-    mock_perm.assert_called_once_with("user1", "analysis:read")
+    mock_perm.assert_called_once_with("user1", "analysis:read", None)
     mock_get.assert_not_called()
     agent.emit.assert_not_called()
 

@@ -5,8 +5,12 @@ import logging
 import os
 from typing import Any
 
-from kafka import KafkaProducer
 import requests
+
+try:  # pragma: no cover - optional dependency
+    from kafka import KafkaProducer  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - kafka library not installed
+    KafkaProducer = None  # type: ignore[assignment]
 
 from .base import BaseAgent
 
