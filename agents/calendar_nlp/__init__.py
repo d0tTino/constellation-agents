@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any, Callable
+from zoneinfo import ZoneInfo
 
 import requests
 
-from ..sdk import BaseAgent, check_permission
 from ..config import Config
+from ..sdk import BaseAgent, check_permission
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +21,7 @@ class CalendarNLPAgent(BaseAgent):
 
     def __init__(
         self,
-        llm: Callable[[str], dict[str, Any]],
+        llm: Callable[[dict[str, Any]], dict[str, Any]],
         *,
         bootstrap_servers: str = "localhost:9092",
     ) -> None:
@@ -35,6 +37,7 @@ class CalendarNLPAgent(BaseAgent):
         text = event.get("text")
         user_id = event.get("user_id")
         group_id = event.get("group_id")
+        timezone = event.get("timezone")
         if not text or not user_id:
 
             logger.debug("Invalid event: %s", event)
@@ -42,7 +45,13 @@ class CalendarNLPAgent(BaseAgent):
         if not check_permission(user_id, "calendar:create", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
-        result = self.llm(text)
+        now = datetime.now(ZoneInfo(timezone)) if timezone else datetime.utcnow()
+        payload = {
+            "text": text,
+            "current_date": now.date().isoformat(),
+            "timezone": timezone,
+        }
+        result = self.llm(payload)
         calendar_event = {
             "title": result.get("title"),
             "start_time": result.get("start_time"),
@@ -67,8 +76,8 @@ async def main(config: Config | None = None) -> None:
     bootstrap = section.get("bootstrap_servers", "localhost:9092")
     endpoint = section.get("llm_endpoint", "http://localhost:8000/parse")
 
-    def llm_call(text: str) -> dict[str, Any]:
-        response = requests.post(endpoint, json={"text": text}, timeout=30)
+    def llm_call(payload: dict[str, Any]) -> dict[str, Any]:
+        response = requests.post(endpoint, json=payload, timeout=30)
         response.raise_for_status()
         return response.json()
 
