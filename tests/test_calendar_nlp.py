@@ -39,7 +39,7 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     llm.assert_called_once_with({
         "text": "Lunch with Sam at noon",
         "current_date": ANY,
-        "timezone": "UTC",
+        "timezone": None,
     })
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
@@ -77,6 +77,33 @@ def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicM
     assert payload["group_id"] == "g1"
     assert kwargs["user_id"] == "u1"
 
+    assert kwargs["group_id"] == "g1"
+
+
+def test_parses_event_with_group_and_timezone(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    event = {
+        "user_id": "u1",
+        "text": "Lunch with Sam at noon",
+        "group_id": "g1",
+        "timezone": "America/New_York",
+    }
+    with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
+        agent_instance.handle_event(event)
+    mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
+    llm.assert_called_once_with({
+        "text": "Lunch with Sam at noon",
+        "current_date": ANY,
+        "timezone": "America/New_York",
+    })
+    agent_instance.emit.assert_called_once()
+    topic, payload = agent_instance.producer.send.call_args[0]
+    kwargs = agent_instance.emit.call_args[1]
+    assert topic == "calendar.event.create_request"
+    assert payload["event"]["title"] == "Lunch"
+    assert payload["user_id"] == "u1"
+    assert payload["group_id"] == "g1"
+    assert kwargs["user_id"] == "u1"
     assert kwargs["group_id"] == "g1"
 
 
