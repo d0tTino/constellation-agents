@@ -74,9 +74,7 @@ class FinanceAdvisor(BaseAgent):
             if not check_permission(user_id, "write", group_id):
                 logger.info("Write permission denied for user %s", user_id)
                 return
-            payload = {"amount": amount, "z": score, "user_id": user_id}
-            if group_id is not None:
-                payload["group_id"] = group_id
+            payload = {"amount": amount, "z": score}
             self.emit(
                 "ume.events.transaction.anomaly",
                 payload,
