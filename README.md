@@ -80,6 +80,7 @@ Translates natural language requests into structured calendar events.
 
   ```json
   {
+    "user_id": "u1",
     "group_id": "g1",
     "event": {
       "title": "Lunch",
@@ -107,6 +108,8 @@ if check_permission(user_id, "calendar:create", group_id):
     )
 ```
 
+All emitted events must include the originating `user_id` and optionally a `group_id`.
+
 ## ExplainabilityAgent
 
 Provides human‑readable explanations for financial analyses.
@@ -129,6 +132,8 @@ Provides human‑readable explanations for financial analyses.
   ```json
   {
     "analysis_id": "a1",
+    "user_id": "u1",
+    "group_id": "g1",
     "explanations": [
       {"action": "invest", "pros": "growth", "cons": "risk"}
     ]
@@ -143,6 +148,8 @@ from agents.sdk import check_permission
 if not check_permission(user_id, "analysis:read"):
     return
 ```
+
+All emitted events must include the originating `user_id` and optionally a `group_id`.
 
 ## PlaidSyncAgent
 
@@ -187,12 +194,14 @@ if check_permission(user_id, "write", group_id):
 
 ## Event Topics
 
+All events emitted by agents must include the initiating `user_id` and, when applicable, a `group_id`.
+
 | Topic | Produced By | Consumed By | Required identifiers |
 | ----- | ----------- | ----------- | -------------------- |
 | `calendar.nl.request` | client applications | CalendarNLPAgent | `user_id`, `text`, `group_id` (optional) |
 | `calendar.event.create_request` | CalendarNLPAgent | calendar service | `user_id`, `group_id` (optional), event fields |
 | `finance.explain.request` | analytics service | ExplainabilityAgent | `user_id`, `analysis_id` |
-| `finance.explain.result` | ExplainabilityAgent | clients | `user_id`, `analysis_id` |
+| `finance.explain.result` | ExplainabilityAgent | clients | `user_id`, `group_id` (optional), `analysis_id` |
 | `plaid.transactions.sync` | scheduler | PlaidSyncAgent | `user_id`, `group_id` (optional) |
 | `plaid.transaction.synced` | PlaidSyncAgent | transaction processor | `user_id`, `group_id` (optional), transaction fields |
 
