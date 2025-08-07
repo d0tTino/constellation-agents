@@ -17,12 +17,14 @@ def test_handle_event_posts_to_cal():
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarSync("http://api")
-    with patch("agents.calendar_sync.requests.post") as mock_post:
+    with patch("agents.calendar_sync.requests.post") as mock_post, \
+         patch("agents.calendar_sync.check_permission", return_value=True) as cp:
         mock_post.return_value.status_code = 200
-        agent.handle_event({"id": "1", "time": "t"})
+        agent.handle_event({"id": "1", "time": "t", "user_id": "u1", "group_id": "g1"})
+        cp.assert_called_once_with("u1", "read", "g1")
         mock_post.assert_called_once_with(
             "http://api",
-            json={"id": "1", "time": "t"},
+            json={"id": "1", "time": "t", "user_id": "u1", "group_id": "g1"},
             timeout=10,
         )
 
@@ -36,13 +38,25 @@ def test_handle_event_retries_on_failure(caplog):
     good = MagicMock(status_code=200)
     with patch(
         "agents.calendar_sync.requests.post", side_effect=[bad, good]
-    ) as mock_post:
+    ) as mock_post, patch("agents.calendar_sync.check_permission", return_value=True):
         with caplog.at_level(logging.ERROR):
-            agent.handle_event({"id": "1", "time": "t"})
+            agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
     assert mock_post.call_count == 2
     assert any(
         "Cal.com sync failed" in record.message for record in caplog.records
     )
+
+
+def test_handle_event_permission_denied():
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarSync("http://api")
+    with patch("agents.calendar_sync.check_permission", return_value=False) as cp, \
+         patch("agents.calendar_sync.requests.post") as mock_post:
+        agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
+    cp.assert_called_once_with("u1", "read", None)
+    mock_post.assert_not_called()
 
 
 def test_handle_cal_event_emits_task_reschedule():
