@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
 from typing import Sequence, Any
 import math
 
@@ -45,6 +46,7 @@ class FinanceAdvisor(BaseAgent):
     """Agent that flags anomalous transactions using percentile z-scores."""
 
     topic_subscriptions = ["ume.events.transaction.created"]
+    HISTORY_SIZE = 1000
 
     def __init__(self, *, bootstrap_servers: str = "localhost:9092") -> None:
         super().__init__(
@@ -52,7 +54,7 @@ class FinanceAdvisor(BaseAgent):
             bootstrap_servers=bootstrap_servers,
             group_id="finance-advisor",
         )
-        self.amounts: list[float] = []
+        self.amounts: deque[float] = deque(maxlen=self.HISTORY_SIZE)
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
         user_id = event.get("user_id")
@@ -67,14 +69,15 @@ class FinanceAdvisor(BaseAgent):
         if amount is None:
             logger.debug("Received event without amount: %s", event)
             return
-        self.amounts.append(float(amount))
-        score = percentile_zscore(self.amounts, float(amount))
-        logger.info("Transaction %s has z-score %.2f", amount, score)
+        amount_f = float(amount)
+        score = percentile_zscore(self.amounts, amount_f)
+        self.amounts.append(amount_f)
+        logger.info("Transaction %s has z-score %.2f", amount_f, score)
         if abs(score) > 3:
             if not check_permission(user_id, "write", group_id):
                 logger.info("Write permission denied for user %s", user_id)
                 return
-            payload = {"amount": amount, "z": score}
+            payload = {"amount": amount_f, "z": score}
             self.emit(
                 "ume.events.transaction.anomaly",
                 payload,

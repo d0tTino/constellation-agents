@@ -119,3 +119,13 @@ def test_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
         agent.handle_event({"amount": 10, "user_id": "u1"})
     cp.assert_called_once_with("u1", "read", None)
     agent.emit.assert_not_called()
+
+
+def test_history_cap(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
+    agent, _ = advisor
+    with patch("agents.finance_advisor.check_permission", return_value=True):
+        total = FinanceAdvisor.HISTORY_SIZE + 100
+        for i in range(total):
+            agent.handle_event({"amount": i, "user_id": "u1"})
+    assert len(agent.amounts) == FinanceAdvisor.HISTORY_SIZE
+    assert agent.amounts[0] == total - FinanceAdvisor.HISTORY_SIZE
