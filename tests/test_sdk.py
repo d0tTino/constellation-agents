@@ -1,10 +1,11 @@
 from unittest.mock import ANY, MagicMock, patch, call
 import pytest
-import agents.sdk.base as base
+import requests
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import agents.sdk.base as base
 import agents.sdk as sdk
 from prometheus_client import CollectorRegistry, Counter, Histogram
 
@@ -81,6 +82,11 @@ def test_check_permission_denied():
         mock_query.return_value = {"allow": False}
         assert sdk.check_permission("user1", "write", group_id="g1") is False
         mock_query.assert_called_once()
+
+
+def test_check_permission_network_error_returns_false():
+    with patch("agents.sdk.requests.post", side_effect=requests.RequestException):
+        assert sdk.check_permission("user1", "read") is False
 
 
 def test_base_agent_dispatches_messages():
