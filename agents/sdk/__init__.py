@@ -75,9 +75,13 @@ def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
         url = endpoint
         data = payload
 
-    response = requests.post(url, json=data, timeout=10)
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = requests.post(url, json=data, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as exc:
+        logger.error("UME query failed: %s", exc)
+        return False
 
 
 def check_permission(user_id: str, action: str, group_id: str | None = None) -> bool:
@@ -96,7 +100,14 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     payload: dict[str, Any] = {"user_id": user_id, "action": action}
     if group_id is not None:
         payload["group_id"] = group_id
-    response = ume_query(endpoint, payload)
+    try:
+        response = ume_query(endpoint, payload)
+    except requests.RequestException as exc:  # pragma: no cover - ume_query handles
+        logger.error("Permission check request failed: %s", exc)
+        return False
+    if not response:
+        logger.error("Permission check failed due to network error")
+        return False
     return bool(response.get("allow"))
 
 
