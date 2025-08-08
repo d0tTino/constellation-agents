@@ -55,7 +55,7 @@ class CalendarNLPAgent(BaseAgent):
             now = datetime.utcnow()
         payload = {
             "text": text,
-            "current_date": now.date().isoformat(),
+            "current_datetime": now.isoformat(),
             "timezone": timezone,
         }
         result = self.llm(payload)

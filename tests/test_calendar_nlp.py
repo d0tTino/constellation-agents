@@ -38,7 +38,7 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
 
     llm.assert_called_once_with({
         "text": "Lunch with Sam at noon",
-        "current_date": ANY,
+        "current_datetime": ANY,
         "timezone": None,
     })
     agent_instance.emit.assert_called_once()
@@ -65,7 +65,7 @@ def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicM
     mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
     llm.assert_called_once_with({
         "text": "Lunch with Sam at noon",
-        "current_date": ANY,
+        "current_datetime": ANY,
         "timezone": "UTC",
     })
     agent_instance.emit.assert_called_once()
@@ -93,7 +93,7 @@ def test_parses_event_with_group_and_timezone(agent: tuple[CalendarNLPAgent, Mag
     mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
     llm.assert_called_once_with({
         "text": "Lunch with Sam at noon",
-        "current_date": ANY,
+        "current_datetime": ANY,
         "timezone": "America/New_York",
     })
     agent_instance.emit.assert_called_once()
