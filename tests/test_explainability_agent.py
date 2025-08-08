@@ -141,3 +141,38 @@ def test_request_exception_logged(
     assert "Failed to fetch actions" in caplog.text
     agent.emit.assert_not_called()
 
+
+def test_missing_pros_cons_defaults(agent: ExplainabilityAgent) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    response = {"actions": [{"name": "invest", "pros": "growth", "cons": None}]}
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True):
+        agent.handle_event(event)
+    explanation = agent.emit.call_args[0][1]["explanations"][0]
+    assert explanation["pros"] == ""
+    assert explanation["cons"] == ""
+
+
+def test_invalid_entries_skipped(agent: ExplainabilityAgent) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    response = {
+        "actions": [
+            {"name": "invest", "pros": ["growth"], "cons": ["risk"]},
+            {"pros": ["missing name"]},
+            "not a dict",
+            {"name": 123, "pros": ["bad"], "cons": ["bad"]},
+        ]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True):
+        agent.handle_event(event)
+    payload = agent.emit.call_args[0][1]
+    assert len(payload["explanations"]) == 1
+    assert payload["explanations"][0]["action"] == "invest"
+

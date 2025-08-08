@@ -52,9 +52,19 @@ class ExplainabilityAgent(BaseAgent):
         actions = data.get("actions", [])
         explanations = []
         for action in actions:
-            name = action.get("name", "unknown")
-            pros = "; ".join(action.get("pros", []))
-            cons = "; ".join(action.get("cons", []))
+            if not isinstance(action, dict):
+                continue
+            name = action.get("name")
+            if not isinstance(name, str):
+                continue
+            pros_items = action.get("pros")
+            if not isinstance(pros_items, list):
+                pros_items = []
+            cons_items = action.get("cons")
+            if not isinstance(cons_items, list):
+                cons_items = []
+            pros = "; ".join(str(p) for p in pros_items if isinstance(p, str))
+            cons = "; ".join(str(c) for c in cons_items if isinstance(c, str))
             explanations.append({"action": name, "pros": pros, "cons": cons})
         payload = {"analysis_id": analysis_id, "explanations": explanations}
         self.emit(
