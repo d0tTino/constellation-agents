@@ -51,6 +51,25 @@ PROCESSING_TIME = Histogram(
 )
 
 
+def _inject_identifiers(
+    event: dict[str, Any], *, user_id: str, group_id: str | None = None
+) -> dict[str, Any]:
+    """Return a copy of *event* with identifiers injected.
+
+    ``user_id`` is required and will be added to the returned payload. When
+    provided, ``group_id`` is also included. The original *event* dict is not
+    modified.
+    """
+    if not user_id:
+        raise ValueError("user_id is required")
+
+    payload = event.copy()
+    payload["user_id"] = user_id
+    if group_id is not None:
+        payload["group_id"] = group_id
+    return payload
+
+
 class BaseAgent:
     """Base agent that subscribes to a Kafka topic and dispatches events."""
 
@@ -97,13 +116,7 @@ class BaseAgent:
         The ``user_id`` is required; a ``ValueError`` is raised when it is
         missing or falsy. When provided, ``group_id`` is added to the payload.
         """
-        if not user_id:
-            raise ValueError("user_id is required")
-
-        payload = event.copy()
-        payload["user_id"] = user_id
-        if group_id is not None:
-            payload["group_id"] = group_id
+        payload = _inject_identifiers(event, user_id=user_id, group_id=group_id)
 
         logger.debug("Emitting event to %s for user %s: %s", topic, user_id, payload)
         self.producer.send(topic, payload)

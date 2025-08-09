@@ -12,7 +12,7 @@ try:  # pragma: no cover - optional dependency
 except ModuleNotFoundError:  # pragma: no cover - kafka library not installed
     KafkaProducer = None  # type: ignore[assignment]
 
-from .base import BaseAgent
+from .base import BaseAgent, _inject_identifiers
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,17 +39,11 @@ def emit_event(
     ``ValueError`` is raised when it is missing or falsy. ``group_id`` is
     optional and, if provided, included in the payload.
     """
-    if not user_id:
-        raise ValueError("user_id is required")
-
+    payload = _inject_identifiers(event, user_id=user_id, group_id=group_id)
     producer = KafkaProducer(
         bootstrap_servers=bootstrap_servers,
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
     )
-    payload = event.copy()
-    payload["user_id"] = user_id
-    if group_id is not None:
-        payload["group_id"] = group_id
     logger.debug("Emitting event to %s: %s", topic, payload)
     producer.send(topic, payload)
     producer.flush()
