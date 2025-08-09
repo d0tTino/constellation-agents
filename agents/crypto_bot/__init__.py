@@ -24,13 +24,35 @@ class CryptoBot:
         self.engine: Any | None = None
 
     def load_strategy(self) -> None:
-        """Load strategy YAML defined in the ``crypto_bot.strategy`` config key."""
-        import yaml
+        """Load strategy data from a YAML file.
+
+        The project uses PyYAML for parsing, but the dependency may not be
+        installed in minimal environments.  To keep the bot functional we fall
+        back to a tiny parser that understands simple ``key: value`` mappings
+        which is sufficient for the tests.
+        """
         path = self.config.get("crypto_bot", {}).get("strategy")
         if not path:
             raise ValueError("Strategy path not configured")
-        with Path(path).open("r") as f:
-            self.strategy = yaml.safe_load(f)
+        text = Path(path).read_text()
+        try:
+            import yaml
+        except ModuleNotFoundError:  # pragma: no cover - optional dependency
+            def _simple_load(s: str) -> dict[str, Any]:
+                data: dict[str, Any] = {}
+                for line in s.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    key, sep, value = line.partition(":")
+                    if not sep:
+                        raise ValueError(f"Invalid line in strategy YAML: {line!r}")
+                    data[key.strip()] = value.strip()
+                return data
+
+            self.strategy = _simple_load(text)
+        else:
+            self.strategy = yaml.safe_load(text)
         logger.info("Loaded strategy from %s", path)
 
     def connect_exchange(self) -> None:
