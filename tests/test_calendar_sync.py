@@ -35,13 +35,17 @@ def test_handle_event_retries_on_failure(caplog):
          patch("agents.sdk.base.start_http_server"):
         agent = CalendarSync("http://api")
     bad = MagicMock(status_code=500)
+    bad2 = MagicMock(status_code=500)
     good = MagicMock(status_code=200)
     with patch(
-        "agents.calendar_sync.requests.post", side_effect=[bad, good]
-    ) as mock_post, patch("agents.calendar_sync.check_permission", return_value=True):
+        "agents.calendar_sync.requests.post", side_effect=[bad, bad2, good]
+    ) as mock_post, \
+        patch("agents.calendar_sync.time.sleep") as mock_sleep, \
+        patch("agents.calendar_sync.check_permission", return_value=True):
         with caplog.at_level(logging.ERROR):
             agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
-    assert mock_post.call_count == 2
+    assert mock_post.call_count == 3
+    assert [c.args[0] for c in mock_sleep.call_args_list] == [1, 2]
     assert any(
         "Cal.com sync failed" in record.message for record in caplog.records
     )

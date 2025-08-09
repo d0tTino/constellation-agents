@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 import requests
+import time
 
 from ..sdk import BaseAgent, check_permission
 from ..config import Config
@@ -45,7 +46,8 @@ class CalendarSync(BaseAgent):
         payload = {"id": appointment_id, "time": start, "user_id": user_id}
         if group_id is not None:
             payload["group_id"] = group_id
-        for _ in range(2):
+        backoff = 1
+        for attempt in range(3):
             try:
                 response = requests.post(
                     self.cal_endpoint, json=payload, timeout=10
@@ -61,6 +63,9 @@ class CalendarSync(BaseAgent):
                 response.status_code,
                 appointment_id,
             )
+            if attempt < 2:
+                time.sleep(backoff)
+                backoff *= 2
 
     def handle_cal_event(self, event: dict[str, Any]) -> None:
         """Process a webhook payload from Cal.com."""
