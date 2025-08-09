@@ -144,3 +144,30 @@ def test_run_emits_metrics_when_start_used(tmp_path):
         {"positions": engine.positions, "profit": engine.profit},
         user_id="u1",
     )
+
+
+def test_run_emits_metrics_with_group(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    bot = CryptoBot(Config(cfg_file), user_id="u1", group_id="g1")
+    engine = MagicMock()
+    engine.positions = ["pos1"]
+    engine.profit = 1.23
+    bot.engine = engine
+    with patch.object(bot, "load_strategy"), patch.object(bot, "connect_exchange"), patch.object(
+        bot, "init_engine"
+    ), patch("agents.crypto_bot.emit_event") as emit, patch(
+        "agents.crypto_bot.check_permission", return_value=True
+    ) as cp:
+        bot.run()
+    engine.run.assert_called_once()
+    cp.assert_called_once_with("u1", "trade", "g1")
+    emit.assert_called_once_with(
+        "TradeSummary",
+        {"positions": engine.positions, "profit": engine.profit},
+        user_id="u1",
+        group_id="g1",
+    )
