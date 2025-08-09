@@ -37,3 +37,26 @@ def test_run_weekly_emits_signals():
             (("SellSignal", {"ticker": "AAPL", "user_id": "u1"}),),
         ]
         assert mock_producer.send.call_args_list == calls
+
+
+def test_run_weekly_emits_signals_with_group_id():
+    predictions = {"SPY": "buy", "AAPL": "sell"}
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer") as mock_producer_cls, \
+         patch("agents.finrl_strategist.date", Monday), \
+         patch.object(FinRLStrategist, "backtest_last_30d", return_value=predictions), \
+         patch("agents.finrl_strategist.check_permission", return_value=True) as cp:
+        mock_producer = MagicMock()
+        mock_producer_cls.return_value = mock_producer
+        strategist = FinRLStrategist(["SPY", "AAPL"], user_id="u1", group_id="g1")
+        result = strategist.run_weekly()
+        cp.assert_called_once_with("u1", "trade", "g1")
+        assert result == predictions
+        assert mock_producer.send.call_count == 2
+        assert mock_producer.flush.call_count == 2
+        mock_producer.close.assert_called_once()
+        calls = [
+            (("BuySignal", {"ticker": "SPY", "user_id": "u1", "group_id": "g1"}),),
+            (("SellSignal", {"ticker": "AAPL", "user_id": "u1", "group_id": "g1"}),),
+        ]
+        assert mock_producer.send.call_args_list == calls
