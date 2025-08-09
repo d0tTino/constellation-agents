@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -45,6 +46,12 @@ class CalendarNLPAgent(BaseAgent):
         if not check_permission(user_id, "calendar:create", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
+        if not timezone:
+            cfg_path = os.getenv("CONFIG_PATH", "config.toml")
+            try:
+                timezone = Config(cfg_path).get("default_timezone")
+            except FileNotFoundError:
+                timezone = None
         if timezone:
             try:
                 now = datetime.now(ZoneInfo(timezone))
@@ -58,11 +65,21 @@ class CalendarNLPAgent(BaseAgent):
             "current_datetime": now.isoformat(),
             "timezone": timezone,
         }
-        result = self.llm(payload)
+        try:
+            result = self.llm(payload)
+        except requests.RequestException:
+            logger.exception("LLM request failed")
+            return
+        title = result.get("title")
+        start_time = result.get("start_time")
+        end_time = result.get("end_time")
+        if not title or not start_time or not end_time:
+            logger.warning("Missing required fields in LLM result: %s", result)
+            return
         calendar_event = {
-            "title": result.get("title"),
-            "start_time": result.get("start_time"),
-            "end_time": result.get("end_time"),
+            "title": title,
+            "start_time": start_time,
+            "end_time": end_time,
             "location": result.get("location"),
             "description": result.get("description"),
             "is_all_day": result.get("is_all_day"),
