@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agents.calendar_nlp import CalendarNLPAgent
@@ -162,4 +163,46 @@ def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
 
     llm.assert_not_called()
+    agent_instance.emit.assert_not_called()
+
+
+def test_uses_default_timezone_when_missing(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+
+    class DummyConfig:
+        def __init__(self, path):
+            pass
+
+        def get(self, key, default=None):
+            return "UTC"
+
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True), \
+         patch("agents.calendar_nlp.Config", DummyConfig):
+        agent_instance.handle_event(event)
+    llm.assert_called_once_with({
+        "text": "Lunch",
+        "current_datetime": ANY,
+        "timezone": "UTC",
+    })
+
+
+def test_llm_request_exception(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    llm.side_effect = requests.RequestException("boom")
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True), \
+         patch("agents.calendar_nlp.logger") as mock_logger:
+        agent_instance.handle_event(event)
+    llm.assert_called_once()
+    mock_logger.exception.assert_called_once()
+    agent_instance.emit.assert_not_called()
+
+
+def test_skips_emission_when_llm_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    llm.return_value = {"title": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
+    llm.assert_called_once()
     agent_instance.emit.assert_not_called()
