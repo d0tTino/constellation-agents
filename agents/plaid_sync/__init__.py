@@ -55,7 +55,7 @@ class PlaidSync(BaseAgent):
         transactions = self.plaid.fetch_transactions(user_id)
         if not check_permission(user_id, "write", group_id):
             logger.info("Write permission denied for %s", user_id)
-            return transactions
+            return []
         for tx in transactions:
             payload = tx.copy()
             self.emit(

@@ -50,9 +50,10 @@ def test_permission_denied(agent: PlaidSync) -> None:
 def test_write_permission_denied(agent: PlaidSync) -> None:
     agent.plaid.fetch_transactions.return_value = [{"id": "t1"}]
     with patch("agents.plaid_sync.check_permission", side_effect=[True, False]) as cp:
-        agent.sync("u1")
+        result = agent.sync("u1")
     assert cp.call_args_list == [
         (("u1", "read", None),),
         (("u1", "write", None),),
     ]
     agent.emit.assert_not_called()
+    assert result == []
