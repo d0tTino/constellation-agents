@@ -5,7 +5,6 @@ import asyncio
 import os
 from pathlib import Path
 
-from . import CryptoBot
 from ..config import Config
 
 
