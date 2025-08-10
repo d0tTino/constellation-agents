@@ -40,6 +40,9 @@ def emit_event(
     optional and, if provided, included in the payload.
     """
     payload = _inject_identifiers(event, user_id=user_id, group_id=group_id)
+    if KafkaProducer is None:  # pragma: no cover - dependency missing
+        msg = "kafka-python library is required to emit events"
+        raise RuntimeError(msg)
     producer = KafkaProducer(
         bootstrap_servers=bootstrap_servers,
         value_serializer=lambda v: json.dumps(v).encode("utf-8"),
