@@ -87,6 +87,9 @@ class BaseAgent:
             self.topic_subscriptions = list(topic_subscriptions)
         # Keep the legacy ``topic`` attribute for backward compatibility.
         self.topic = self.topic_subscriptions[0]
+        if KafkaConsumer is None or KafkaProducer is None:
+            msg = "kafka-python library is required to use BaseAgent"
+            raise RuntimeError(msg)
         self.consumer = KafkaConsumer(
             *self.topic_subscriptions,
             bootstrap_servers=bootstrap_servers,

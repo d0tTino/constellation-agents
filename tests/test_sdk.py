@@ -247,3 +247,17 @@ def test_multiple_agents_start_metrics_on_distinct_ports():
         mock_start.assert_has_calls([call(8001), call(8002)], any_order=True)
         assert mock_start.call_count == 2
 
+
+def test_emit_event_missing_kafka_dependency():
+    with patch("agents.sdk.KafkaProducer", None):
+        with pytest.raises(RuntimeError, match="kafka-python library is required"):
+            sdk.emit_event("t", {"a": 1}, user_id="u1")
+
+
+def test_base_agent_missing_kafka_dependency():
+    with patch("agents.sdk.base.KafkaConsumer", None), patch(
+        "agents.sdk.base.KafkaProducer", None
+    ):
+        with pytest.raises(RuntimeError, match="kafka-python library is required"):
+            sdk.BaseAgent("topic", metrics_port=None)
+
