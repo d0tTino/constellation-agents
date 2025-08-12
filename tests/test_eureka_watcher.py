@@ -32,8 +32,10 @@ def test_watcher_emits_for_similar_doc() -> None:
         payload = args[1]
         assert payload["idea"] == "idea1"
         assert payload["doc"] == "doc1"
-        assert payload["user_id"] == "u1"
+        assert "user_id" not in payload
+        assert "group_id" not in payload
         assert kwargs["user_id"] == "u1"
+        assert kwargs["group_id"] is None
 
 
 def test_watcher_ignores_dissimilar_doc() -> None:
