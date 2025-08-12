@@ -118,6 +118,7 @@ def test_calendar_nlp_entrypoint(tmp_path: Path) -> None:
     (tmp_path / "requests" / "__init__.py").write_text(
         "def post(*a,**k):\n    class R:\n        def raise_for_status(self):\n            pass\n        def json(self):\n            return {}\n    return R()\n"
     )
+    (tmp_path / "config.toml").write_text("[calendar_nlp]\nllm_endpoint='http://example.com'\n")
     env = os.environ.copy()
     repo_root = Path(__file__).resolve().parents[1]
     env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
