@@ -67,10 +67,7 @@ class EurekaWatcher(BaseAgent):
                     "idea": event.get("id"),
                     "doc": doc.get("id"),
                     "similarity": sim,
-                    "user_id": self.user_id,
                 }
-                if self.group_id is not None:
-                    payload["group_id"] = self.group_id
                 self.emit(
                     "ume.events.suggested_task",
                     payload,
