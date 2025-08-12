@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from agents.plaid_sync import PlaidSync, PlaidClient  # noqa: E402
+from agents.plaid_sync import (
+    PlaidClient,
+    PlaidSync,
+    READ_ACTION,
+    WRITE_ACTION,
+)  # noqa: E402
 
 
 @pytest.fixture()
@@ -25,8 +30,8 @@ def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
     with patch("agents.plaid_sync.check_permission", side_effect=[True, True]) as cp:
         agent.sync("u1", group_id="g1")
     assert cp.call_args_list == [
-        (("u1", "read", "g1"),),
-        (("u1", "write", "g1"),),
+        (("u1", READ_ACTION, "g1"),),
+        (("u1", WRITE_ACTION, "g1"),),
     ]
     agent.plaid.fetch_transactions.assert_called_once_with("u1")
     agent.emit.assert_called_once()
@@ -42,7 +47,7 @@ def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
 def test_permission_denied(agent: PlaidSync) -> None:
     with patch("agents.plaid_sync.check_permission", return_value=False) as cp:
         agent.sync("u1")
-    cp.assert_called_once_with("u1", "read", None)
+    cp.assert_called_once_with("u1", READ_ACTION, None)
     agent.plaid.fetch_transactions.assert_not_called()
     agent.emit.assert_not_called()
 
@@ -52,8 +57,20 @@ def test_write_permission_denied(agent: PlaidSync) -> None:
     with patch("agents.plaid_sync.check_permission", side_effect=[True, False]) as cp:
         result = agent.sync("u1")
     assert cp.call_args_list == [
-        (("u1", "read", None),),
-        (("u1", "write", None),),
+        (("u1", READ_ACTION, None),),
+        (("u1", WRITE_ACTION, None),),
     ]
+    agent.emit.assert_not_called()
+    assert result == []
+
+
+def test_fetch_transactions_error(agent: PlaidSync) -> None:
+    agent.plaid.fetch_transactions.side_effect = Exception("boom")
+    with patch("agents.plaid_sync.check_permission", return_value=True) as cp, patch(
+        "agents.plaid_sync.logger"
+    ) as log:
+        result = agent.sync("u1")
+    cp.assert_called_once_with("u1", READ_ACTION, None)
+    log.exception.assert_called_once()
     agent.emit.assert_not_called()
     assert result == []

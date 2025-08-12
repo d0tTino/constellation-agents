@@ -9,6 +9,9 @@ from ..config import Config
 
 logger = logging.getLogger(__name__)
 
+READ_ACTION = "plaid:transactions:read"
+WRITE_ACTION = "plaid:transactions:write"
+
 
 class PlaidClient:
     """Minimal Plaid client placeholder used for transaction sync."""
@@ -49,11 +52,15 @@ class PlaidSync(BaseAgent):
     def sync(self, user_id: str, group_id: str | None = None) -> list[dict[str, Any]]:
         """Fetch transactions and emit ``plaid.transaction.synced`` events."""
 
-        if not check_permission(user_id, "read", group_id):
+        if not check_permission(user_id, READ_ACTION, group_id):
             logger.info("Read permission denied for %s", user_id)
             return []
-        transactions = self.plaid.fetch_transactions(user_id)
-        if not check_permission(user_id, "write", group_id):
+        try:
+            transactions = self.plaid.fetch_transactions(user_id)
+        except Exception:  # pragma: no cover - defensive
+            logger.exception("Failed to fetch transactions for %s", user_id)
+            return []
+        if not check_permission(user_id, WRITE_ACTION, group_id):
             logger.info("Write permission denied for %s", user_id)
             return []
         for tx in transactions:
@@ -87,4 +94,10 @@ async def main(config: Config | None = None) -> None:
     await asyncio.to_thread(agent.run)
 
 
-__all__ = ["PlaidClient", "PlaidSync", "main"]
+__all__ = [
+    "PlaidClient",
+    "PlaidSync",
+    "main",
+    "READ_ACTION",
+    "WRITE_ACTION",
+]
