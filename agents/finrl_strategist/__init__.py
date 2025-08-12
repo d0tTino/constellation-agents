@@ -88,9 +88,7 @@ class FinRLStrategist(BaseAgent):
             for ticker, action in result.items():
                 topic = signals.get(action)
                 if topic:
-                    payload = {"ticker": ticker, "user_id": self.user_id}
-                    if self.group_id is not None:
-                        payload["group_id"] = self.group_id
+                    payload = {"ticker": ticker}
                     self.emit(
                         topic,
                         payload,
