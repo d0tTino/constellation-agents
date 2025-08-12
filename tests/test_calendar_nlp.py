@@ -40,7 +40,7 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     llm.assert_called_once_with({
         "text": "Lunch with Sam at noon",
         "current_datetime": ANY,
-        "timezone": None,
+        "timezone": "UTC",
     })
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]

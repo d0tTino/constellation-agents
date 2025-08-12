@@ -52,10 +52,14 @@ class EurekaWatcher(BaseAgent):
             logger.info("Permission denied for %s", self.user_id)
             return
         try:
-            docs = ume_query(self.docs_endpoint, {"vector": vector}).get("docs", [])
+            result = ume_query(self.docs_endpoint, {"vector": vector})
         except Exception as exc:  # pragma: no cover - network errors
             logger.error("UME query failed: %s", exc)
             return
+        if not isinstance(result, dict):
+            logger.error("UME query returned invalid result: %s", result)
+            return
+        docs = result.get("docs", [])
         for doc in docs:
             doc_vec = doc.get("vector")
             if not isinstance(doc_vec, Sequence):
