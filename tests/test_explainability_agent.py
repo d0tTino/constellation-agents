@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -135,10 +136,14 @@ def test_request_exception_logged(
 ) -> None:
     event = {"analysis_id": "123", "user_id": "user1"}
     with patch("agents.explainability_agent.check_permission", return_value=True), \
-         patch("agents.explainability_agent.requests.get", side_effect=Exception("boom")):
+         patch(
+             "agents.explainability_agent.requests.get",
+             side_effect=requests.RequestException("boom"),
+         ):
         with caplog.at_level(logging.ERROR):
             agent.handle_event(event)
     assert "Failed to fetch actions" in caplog.text
+    assert "boom" in caplog.text
     agent.emit.assert_not_called()
 
 
