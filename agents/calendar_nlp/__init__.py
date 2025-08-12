@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -57,6 +58,7 @@ class CalendarNLPAgent(BaseAgent):
                 logger.exception("Failed to find timezone %s", timezone)
                 return
         else:
+            timezone = "UTC"
             now = datetime.utcnow()
         payload = {
             "text": text,
@@ -96,12 +98,13 @@ async def main(config: Config | None = None) -> None:
     """Run the :class:`CalendarNLPAgent` from configuration."""
     if config is None:
         cfg_path = os.getenv("CONFIG_PATH", "config.toml")
-        config = Config(cfg_path)
+        if Path(cfg_path).exists():
+            config = Config(cfg_path)
 
-    section = config.get("calendar_nlp", {})
+    section = config.get("calendar_nlp", {}) if config else {}
     bootstrap = section.get("bootstrap_servers", "localhost:9092")
     endpoint = section.get("llm_endpoint", "http://localhost:8000/parse")
-    default_timezone = config.get("default_timezone")
+    default_timezone = config.get("default_timezone") if config else None
 
     def llm_call(payload: dict[str, Any]) -> dict[str, Any]:
         response = requests.post(endpoint, json=payload, timeout=30)
