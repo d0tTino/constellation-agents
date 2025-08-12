@@ -25,6 +25,7 @@ class CalendarNLPAgent(BaseAgent):
         llm: Callable[[dict[str, Any]], dict[str, Any]],
         *,
         bootstrap_servers: str = "localhost:9092",
+        default_timezone: str | None = None,
     ) -> None:
         super().__init__(
             self.topic_subscriptions,
@@ -32,6 +33,7 @@ class CalendarNLPAgent(BaseAgent):
             group_id="calendar-nlp",
         )
         self.llm = llm
+        self.default_timezone = default_timezone
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
         """Handle a natural language calendar request."""
@@ -47,11 +49,7 @@ class CalendarNLPAgent(BaseAgent):
             logger.info("Permission denied for user %s", user_id)
             return
         if not timezone:
-            cfg_path = os.getenv("CONFIG_PATH", "config.toml")
-            try:
-                timezone = Config(cfg_path).get("default_timezone")
-            except FileNotFoundError:
-                timezone = None
+            timezone = self.default_timezone
         if timezone:
             try:
                 now = datetime.now(ZoneInfo(timezone))
@@ -96,16 +94,25 @@ class CalendarNLPAgent(BaseAgent):
 
 async def main(config: Config | None = None) -> None:
     """Run the :class:`CalendarNLPAgent` from configuration."""
-    section = config.get("calendar_nlp", {}) if config else {}
+    if config is None:
+        cfg_path = os.getenv("CONFIG_PATH", "config.toml")
+        config = Config(cfg_path)
+
+    section = config.get("calendar_nlp", {})
     bootstrap = section.get("bootstrap_servers", "localhost:9092")
     endpoint = section.get("llm_endpoint", "http://localhost:8000/parse")
+    default_timezone = config.get("default_timezone")
 
     def llm_call(payload: dict[str, Any]) -> dict[str, Any]:
         response = requests.post(endpoint, json=payload, timeout=30)
         response.raise_for_status()
         return response.json()
 
-    agent = CalendarNLPAgent(llm_call, bootstrap_servers=bootstrap)
+    agent = CalendarNLPAgent(
+        llm_call,
+        bootstrap_servers=bootstrap,
+        default_timezone=default_timezone,
+    )
     await asyncio.to_thread(agent.run)
 
 

@@ -24,7 +24,7 @@ def agent() -> tuple[CalendarNLPAgent, MagicMock]:
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
          patch("agents.sdk.base.start_http_server"):
-        agent = CalendarNLPAgent(llm)
+        agent = CalendarNLPAgent(llm, default_timezone=None)
     agent.emit = MagicMock(wraps=agent.emit)
     return agent, llm
 
@@ -133,7 +133,7 @@ def test_emitted_event_consumed_by_downstream() -> None:
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
          patch("agents.sdk.base.start_http_server"):
-        agent = CalendarNLPAgent(llm)
+        agent = CalendarNLPAgent(llm, default_timezone=None)
 
     with patch("agents.calendar_nlp.check_permission", return_value=True):
         agent.handle_event({"user_id": "u1", "group_id": "g1", "text": "Lunch"})
@@ -166,20 +166,25 @@ def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance.emit.assert_not_called()
 
 
-def test_uses_default_timezone_when_missing(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
-    agent_instance, llm = agent
-
-    class DummyConfig:
-        def __init__(self, path):
-            pass
-
-        def get(self, key, default=None):
-            return "UTC"
+def test_uses_default_timezone_when_missing() -> None:
+    llm = MagicMock(return_value={
+        "title": "Lunch",
+        "start_time": "2024-01-01T12:00:00",
+        "end_time": "2024-01-01T13:00:00",
+        "location": "Cafe",
+        "description": "Lunch with Sam",
+        "is_all_day": False,
+        "recurrence": None,
+    })
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarNLPAgent(llm, default_timezone="UTC")
+    agent.emit = MagicMock(wraps=agent.emit)
 
     event = {"user_id": "u1", "text": "Lunch"}
-    with patch("agents.calendar_nlp.check_permission", return_value=True), \
-         patch("agents.calendar_nlp.Config", DummyConfig):
-        agent_instance.handle_event(event)
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent.handle_event(event)
     llm.assert_called_once_with({
         "text": "Lunch",
         "current_datetime": ANY,
