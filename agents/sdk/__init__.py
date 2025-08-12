@@ -53,12 +53,13 @@ def emit_event(
     producer.close()
 
 
-def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     """Send a query to a UME endpoint and return the JSON response.
 
     When the ``OPA_SIDECAR_URL`` environment variable is defined, the request
     is sent to that URL with the original endpoint and payload nested in the
     JSON body. Otherwise the request is sent directly to ``endpoint``.
+    ``None`` is returned if the request fails for any reason.
     """
 
     logger.debug("Querying UME at %s with payload %s", endpoint, payload)
@@ -78,7 +79,7 @@ def ume_query(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
         return response.json()
     except requests.RequestException as exc:
         logger.error("UME query failed: %s", exc)
-        return False
+        return None
 
 
 def check_permission(user_id: str, action: str, group_id: str | None = None) -> bool:
@@ -97,12 +98,8 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     payload: dict[str, Any] = {"user_id": user_id, "action": action}
     if group_id is not None:
         payload["group_id"] = group_id
-    try:
-        response = ume_query(endpoint, payload)
-    except requests.RequestException as exc:  # pragma: no cover - ume_query handles
-        logger.error("Permission check request failed: %s", exc)
-        return False
-    if not response:
+    response = ume_query(endpoint, payload)
+    if response is None:
         logger.error("Permission check failed due to network error")
         return False
     return bool(response.get("allow"))
