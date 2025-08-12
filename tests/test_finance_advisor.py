@@ -5,7 +5,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from agents.finance_advisor import FinanceAdvisor, percentile, percentile_zscore
+from agents.finance_advisor import (
+    FinanceAdvisor,
+    percentile,
+    percentile_zscore,
+    READ_ACTION,
+    WRITE_ACTION,
+)
 import pytest
 
 
@@ -66,7 +72,10 @@ def test_emit_on_high_zscore(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
         agent.emit.assert_not_called()
         agent.handle_event({"amount": 1000, "user_id": "u1", "group_id": "g1"})
     assert cp.call_count == len(normal) + 2
-    assert cp.call_args_list[-2:] == [call("u1", "read", "g1"), call("u1", "write", "g1")]
+    assert cp.call_args_list[-2:] == [
+        call("u1", READ_ACTION, "g1"),
+        call("u1", WRITE_ACTION, "g1"),
+    ]
     agent.emit.assert_called_once()
     topic, payload = agent.emit.call_args[0]
     kwargs = agent.emit.call_args[1]
@@ -94,7 +103,10 @@ def test_emit_on_low_zscore(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
         agent.emit.assert_not_called()
         agent.handle_event({"amount": -1000, "user_id": "u1"})
     assert cp.call_count == len(normal) + 2
-    assert cp.call_args_list[-2:] == [call("u1", "read", None), call("u1", "write", None)]
+    assert cp.call_args_list[-2:] == [
+        call("u1", READ_ACTION, None),
+        call("u1", WRITE_ACTION, None),
+    ]
     agent.emit.assert_called_once()
     topic, payload = agent.emit.call_args[0]
     kwargs = agent.emit.call_args[1]
@@ -117,7 +129,7 @@ def test_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
     agent, _ = advisor
     with patch("agents.finance_advisor.check_permission", return_value=False) as cp:
         agent.handle_event({"amount": 10, "user_id": "u1"})
-    cp.assert_called_once_with("u1", "read", None)
+    cp.assert_called_once_with("u1", READ_ACTION, None)
     agent.emit.assert_not_called()
 
 

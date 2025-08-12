@@ -11,6 +11,9 @@ from ..config import Config
 
 logger = logging.getLogger(__name__)
 
+READ_ACTION = "transactions:read"
+WRITE_ACTION = "transactions:write"
+
 
 def percentile(data: Sequence[float], p: float) -> float:
     """Return the ``p``th percentile of ``data`` (``p`` between 0 and 100)."""
@@ -62,7 +65,7 @@ class FinanceAdvisor(BaseAgent):
             logger.debug("Received event without user_id: %s", event)
             return
         group_id = event.get("group_id")
-        if not check_permission(user_id, "read", group_id):
+        if not check_permission(user_id, READ_ACTION, group_id):
             logger.info("Permission denied for user %s", user_id)
             return
         amount = event.get("amount")
@@ -74,7 +77,7 @@ class FinanceAdvisor(BaseAgent):
         self.amounts.append(amount_f)
         logger.info("Transaction %s has z-score %.2f", amount_f, score)
         if abs(score) > 3:
-            if not check_permission(user_id, "write", group_id):
+            if not check_permission(user_id, WRITE_ACTION, group_id):
                 logger.info("Write permission denied for user %s", user_id)
                 return
             payload = {"amount": amount_f, "z": score}
@@ -94,4 +97,11 @@ async def main(config: Config | None = None) -> None:
     await asyncio.to_thread(agent.run)
 
 
-__all__ = ["FinanceAdvisor", "percentile", "percentile_zscore", "main"]
+__all__ = [
+    "FinanceAdvisor",
+    "percentile",
+    "percentile_zscore",
+    "main",
+    "READ_ACTION",
+    "WRITE_ACTION",
+]
