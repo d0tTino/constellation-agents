@@ -46,7 +46,7 @@ class ExplainabilityAgent(BaseAgent):
             )
             resp.raise_for_status()
             data = resp.json()
-        except Exception as exc:  # pragma: no cover - network errors
+        except requests.RequestException as exc:  # pragma: no cover - network errors
             logger.error("Failed to fetch actions: %s", exc)
             return
         actions = data.get("actions", [])
