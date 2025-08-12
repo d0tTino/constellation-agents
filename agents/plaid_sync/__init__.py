@@ -55,13 +55,13 @@ class PlaidSync(BaseAgent):
         if not check_permission(user_id, READ_ACTION, group_id):
             logger.info("Read permission denied for %s", user_id)
             return []
+        if not check_permission(user_id, WRITE_ACTION, group_id):
+            logger.info("Write permission denied for %s", user_id)
+            return []
         try:
             transactions = self.plaid.fetch_transactions(user_id)
         except Exception:  # pragma: no cover - defensive
             logger.exception("Failed to fetch transactions for %s", user_id)
-            return []
-        if not check_permission(user_id, WRITE_ACTION, group_id):
-            logger.info("Write permission denied for %s", user_id)
             return []
         for tx in transactions:
             payload = tx.copy()
