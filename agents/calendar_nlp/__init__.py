@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 from typing import Any, Callable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -59,7 +59,7 @@ class CalendarNLPAgent(BaseAgent):
                 return
         else:
             timezone = "UTC"
-            now = datetime.utcnow()
+            now = datetime.now(dt_timezone.utc)
         payload = {
             "text": text,
             "current_datetime": now.isoformat(),

@@ -37,11 +37,11 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", None)
 
-    llm.assert_called_once_with({
-        "text": "Lunch with Sam at noon",
-        "current_datetime": ANY,
-        "timezone": "UTC",
-    })
+    llm.assert_called_once()
+    payload = llm.call_args[0][0]
+    assert payload["text"] == "Lunch with Sam at noon"
+    assert payload["timezone"] == "UTC"
+    assert payload["current_datetime"].endswith("+00:00")
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
@@ -64,11 +64,11 @@ def test_parses_and_emits_event_with_group(agent: tuple[CalendarNLPAgent, MagicM
     with patch("agents.calendar_nlp.check_permission", return_value=True) as mock_perm:
         agent_instance.handle_event(event)
     mock_perm.assert_called_once_with("u1", "calendar:create", "g1")
-    llm.assert_called_once_with({
-        "text": "Lunch with Sam at noon",
-        "current_datetime": ANY,
-        "timezone": "UTC",
-    })
+    llm.assert_called_once()
+    payload = llm.call_args[0][0]
+    assert payload["text"] == "Lunch with Sam at noon"
+    assert payload["timezone"] == "UTC"
+    assert payload["current_datetime"].endswith("+00:00")
     agent_instance.emit.assert_called_once()
     topic, payload = agent_instance.producer.send.call_args[0]
     kwargs = agent_instance.emit.call_args[1]
@@ -185,11 +185,11 @@ def test_uses_default_timezone_when_missing() -> None:
     event = {"user_id": "u1", "text": "Lunch"}
     with patch("agents.calendar_nlp.check_permission", return_value=True):
         agent.handle_event(event)
-    llm.assert_called_once_with({
-        "text": "Lunch",
-        "current_datetime": ANY,
-        "timezone": "UTC",
-    })
+    llm.assert_called_once()
+    payload = llm.call_args[0][0]
+    assert payload["text"] == "Lunch"
+    assert payload["timezone"] == "UTC"
+    assert payload["current_datetime"].endswith("+00:00")
 
 
 def test_llm_request_exception(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
