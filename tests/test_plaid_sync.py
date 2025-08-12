@@ -26,9 +26,20 @@ def agent() -> PlaidSync:
 
 
 def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
-    agent.plaid.fetch_transactions.return_value = [{"id": "t1"}]
-    with patch("agents.plaid_sync.check_permission", side_effect=[True, True]) as cp:
+    order: list[tuple[str, str]] = []
+
+    def cp_side_effect(user: str, action: str, group: str | None) -> bool:
+        order.append(("cp", action))
+        return True
+
+    def fetch_side_effect(user: str) -> list[dict[str, str]]:
+        order.append(("fetch", ""))
+        return [{"id": "t1"}]
+
+    agent.plaid.fetch_transactions.side_effect = fetch_side_effect
+    with patch("agents.plaid_sync.check_permission", side_effect=cp_side_effect) as cp:
         agent.sync("u1", group_id="g1")
+    assert order == [("cp", READ_ACTION), ("cp", WRITE_ACTION), ("fetch", "")]
     assert cp.call_args_list == [
         (("u1", READ_ACTION, "g1"),),
         (("u1", WRITE_ACTION, "g1"),),
@@ -60,17 +71,30 @@ def test_write_permission_denied(agent: PlaidSync) -> None:
         (("u1", READ_ACTION, None),),
         (("u1", WRITE_ACTION, None),),
     ]
+    agent.plaid.fetch_transactions.assert_not_called()
     agent.emit.assert_not_called()
     assert result == []
 
 
 def test_fetch_transactions_error(agent: PlaidSync) -> None:
     agent.plaid.fetch_transactions.side_effect = Exception("boom")
-    with patch("agents.plaid_sync.check_permission", return_value=True) as cp, patch(
-        "agents.plaid_sync.logger"
-    ) as log:
+    with patch(
+        "agents.plaid_sync.check_permission", return_value=True
+    ) as cp, patch("agents.plaid_sync.logger") as log:
         result = agent.sync("u1")
-    cp.assert_called_once_with("u1", READ_ACTION, None)
+    assert cp.call_args_list == [
+        (("u1", READ_ACTION, None),),
+        (("u1", WRITE_ACTION, None),),
+    ]
     log.exception.assert_called_once()
     agent.emit.assert_not_called()
     assert result == []
+
+
+def test_handle_event_permission_denied(agent: PlaidSync) -> None:
+    event = {"user_id": "u1", "group_id": "g1"}
+    with patch("agents.plaid_sync.check_permission", return_value=False) as cp:
+        agent.handle_event(event)
+    cp.assert_called_once_with("u1", READ_ACTION, "g1")
+    agent.plaid.fetch_transactions.assert_not_called()
+    agent.emit.assert_not_called()
