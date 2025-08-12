@@ -53,6 +53,13 @@ def test_ume_query_posts_and_returns_json():
         mock_post.assert_called_once()
 
 
+def test_ume_query_network_error_returns_none():
+    with patch(
+        "agents.sdk.requests.post", side_effect=requests.RequestException
+    ):
+        assert sdk.ume_query("http://example", {"q": 1}) is None
+
+
 def test_ume_query_uses_sidecar(monkeypatch):
     with patch("agents.sdk.requests.post") as mock_post:
         mock_resp = MagicMock()
