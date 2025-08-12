@@ -147,6 +147,21 @@ def test_request_exception_logged(
     agent.emit.assert_not_called()
 
 
+def test_invalid_json_no_emit(
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status.return_value = None
+    mock_resp.json.side_effect = ValueError("invalid json")
+    with patch("agents.explainability_agent.check_permission", return_value=True), \
+         patch("agents.explainability_agent.requests.get", return_value=mock_resp):
+        with caplog.at_level(logging.ERROR):
+            agent.handle_event(event)
+    assert "Failed to parse JSON" in caplog.text
+    agent.emit.assert_not_called()
+
+
 def test_missing_pros_cons_defaults(agent: ExplainabilityAgent) -> None:
     event = {"analysis_id": "123", "user_id": "user1"}
     response = {"actions": [{"name": "invest", "pros": "growth", "cons": None}]}

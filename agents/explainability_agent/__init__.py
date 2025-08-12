@@ -45,7 +45,11 @@ class ExplainabilityAgent(BaseAgent):
                 f"{self.engine_url}/analysis/{analysis_id}/actions", timeout=10
             )
             resp.raise_for_status()
-            data = resp.json()
+            try:
+                data = resp.json()
+            except ValueError as exc:
+                logger.error("Failed to parse JSON: %s", exc)
+                return
         except requests.RequestException as exc:  # pragma: no cover - network errors
             logger.error("Failed to fetch actions: %s", exc)
             return
