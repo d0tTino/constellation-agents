@@ -13,6 +13,7 @@ from agents.finance_advisor import (
     WRITE_ACTION,
 )
 import pytest
+from prometheus_client import CollectorRegistry, Counter
 
 
 @pytest.fixture()
@@ -127,9 +128,55 @@ def test_emit_on_low_zscore(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
 
 def test_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
     agent, _ = advisor
-    with patch("agents.finance_advisor.check_permission", return_value=False) as cp:
+    registry = CollectorRegistry()
+    counter = Counter(
+        "agent_permission_denied_total",
+        "desc",
+        ["agent", "action"],
+        registry=registry,
+    )
+    with patch("agents.finance_advisor.PERMISSION_DENIED", counter), patch(
+        "agents.finance_advisor.check_permission", return_value=False
+    ) as cp:
         agent.handle_event({"amount": 10, "user_id": "u1"})
     cp.assert_called_once_with("u1", READ_ACTION, None)
+    val = registry.get_sample_value(
+        "agent_permission_denied_total",
+        {"agent": "FinanceAdvisor", "action": READ_ACTION},
+    )
+    assert val == 1.0
+    agent.emit.assert_not_called()
+
+
+def test_write_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
+    agent, _ = advisor
+    normal = [100, 105, 95, 100, 102, 98, 101, 99, 103, 97]
+    registry = CollectorRegistry()
+    counter = Counter(
+        "agent_permission_denied_total",
+        "desc",
+        ["agent", "action"],
+        registry=registry,
+    )
+
+    def perm_side_effect(user_id, action, group_id):  # noqa: ANN001
+        return action != WRITE_ACTION
+
+    with patch("agents.finance_advisor.PERMISSION_DENIED", counter), patch(
+        "agents.finance_advisor.check_permission", side_effect=perm_side_effect
+    ) as cp:
+        for amt in normal:
+            agent.handle_event({"amount": amt, "user_id": "u1"})
+        agent.handle_event({"amount": 1000, "user_id": "u1"})
+    assert cp.call_args_list[-2:] == [
+        call("u1", READ_ACTION, None),
+        call("u1", WRITE_ACTION, None),
+    ]
+    val = registry.get_sample_value(
+        "agent_permission_denied_total",
+        {"agent": "FinanceAdvisor", "action": WRITE_ACTION},
+    )
+    assert val == 1.0
     agent.emit.assert_not_called()
 
 
