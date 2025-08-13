@@ -4,6 +4,19 @@ import asyncio
 import logging
 from typing import Any
 
+try:  # pragma: no cover - optional metrics dependency
+    from prometheus_client import Counter
+except ModuleNotFoundError:  # pragma: no cover - prometheus not installed
+    class _NullMetric:  # pylint: disable=too-few-public-methods
+        def labels(self, **kwargs):  # type: ignore[unused-argument]
+            return self
+
+        def inc(self, *args, **kwargs):  # type: ignore[unused-argument]
+            pass
+
+    def Counter(*args, **kwargs):  # type: ignore
+        return _NullMetric()
+
 from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
@@ -11,6 +24,12 @@ logger = logging.getLogger(__name__)
 
 READ_ACTION = "plaid:transactions:read"
 WRITE_ACTION = "plaid:transactions:write"
+
+PERMISSION_DENIALS = Counter(
+    "plaid_permission_denials_total",
+    "Number of permission denials in Plaid sync",
+    ["action"],
+)
 
 
 class PlaidClient:
@@ -54,9 +73,11 @@ class PlaidSync(BaseAgent):
 
         if not check_permission(user_id, READ_ACTION, group_id):
             logger.info("Read permission denied for %s", user_id)
+            PERMISSION_DENIALS.labels(action="read").inc()
             return []
         if not check_permission(user_id, WRITE_ACTION, group_id):
             logger.info("Write permission denied for %s", user_id)
+            PERMISSION_DENIALS.labels(action="write").inc()
             return []
         try:
             transactions = self.plaid.fetch_transactions(user_id)
@@ -100,4 +121,5 @@ __all__ = [
     "main",
     "READ_ACTION",
     "WRITE_ACTION",
+    "PERMISSION_DENIALS",
 ]
