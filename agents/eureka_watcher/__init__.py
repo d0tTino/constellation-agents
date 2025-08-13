@@ -44,12 +44,14 @@ class EurekaWatcher(BaseAgent):
         self.group_id = group_id
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
+        user_id = event.get("user_id", self.user_id)
+        group_id = event.get("group_id", self.group_id)
         vector = event.get("vector")
         if not isinstance(vector, Sequence):
             logger.debug("Event missing vector: %s", event)
             return
-        if not check_permission(self.user_id, "suggest", self.group_id):
-            logger.info("Permission denied for %s", self.user_id)
+        if not check_permission(user_id, "suggest", group_id):
+            logger.info("Permission denied for %s", user_id)
             return
         try:
             result = ume_query(self.docs_endpoint, {"vector": vector})
@@ -75,8 +77,8 @@ class EurekaWatcher(BaseAgent):
                 self.emit(
                     "ume.events.suggested_task",
                     payload,
-                    user_id=self.user_id,
-                    group_id=self.group_id,
+                    user_id=user_id,
+                    group_id=group_id,
                 )
 
 
