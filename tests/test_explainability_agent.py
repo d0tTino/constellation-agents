@@ -37,7 +37,11 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
          patch("agents.explainability_agent.check_permission", return_value=True) as mock_perm:
         agent.handle_event(event)
     mock_perm.assert_called_once_with("user1", "analysis:read", None)
-    mock_get.assert_called_once_with("http://engine/analysis/123/actions", timeout=10)
+    mock_get.assert_called_once_with(
+        "http://engine/analysis/123/actions",
+        params={"user_id": "user1"},
+        timeout=10,
+    )
     agent.emit.assert_called_once()
     topic, payload = agent.emit.call_args[0]
     kwargs = agent.emit.call_args.kwargs
@@ -67,10 +71,15 @@ def test_event_consumed_by_downstream() -> None:
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
          patch("agents.sdk.base.start_http_server"), \
-         patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.requests.get", return_value=mock_resp) as mock_get, \
          patch("agents.explainability_agent.check_permission", return_value=True):
         agent = ExplainabilityAgent("http://engine")
         agent.handle_event({"analysis_id": "123", "user_id": "u1"})
+    mock_get.assert_called_once_with(
+        "http://engine/analysis/123/actions",
+        params={"user_id": "u1"},
+        timeout=10,
+    )
     downstream.assert_called_once()
     topic, payload = downstream.call_args[0]
     assert topic == "finance.explain.result"
@@ -98,11 +107,16 @@ def test_group_id_propagates() -> None:
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
          patch("agents.sdk.base.start_http_server"), \
-         patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.requests.get", return_value=mock_resp) as mock_get, \
          patch("agents.explainability_agent.check_permission", return_value=True) as mock_perm:
         agent = ExplainabilityAgent("http://engine")
         agent.handle_event({"analysis_id": "123", "user_id": "u1", "group_id": "g1"})
     mock_perm.assert_called_once_with("u1", "analysis:read", "g1")
+    mock_get.assert_called_once_with(
+        "http://engine/analysis/123/actions",
+        params={"user_id": "u1", "group_id": "g1"},
+        timeout=10,
+    )
     downstream.assert_called_once()
     topic, payload = downstream.call_args[0]
     assert topic == "finance.explain.result"
