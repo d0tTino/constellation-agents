@@ -47,6 +47,8 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     kwargs = agent_instance.emit.call_args[1]
     assert topic == "calendar.event.create_request"
     assert payload["event"]["title"] == "Lunch"
+    assert payload["event"]["start_time"] == "2024-01-01T12:00:00"
+    assert payload["event"]["end_time"] == "2024-01-01T13:00:00"
     assert payload["user_id"] == "u1"
     assert "group_id" not in payload
     assert kwargs["user_id"] == "u1"
@@ -129,7 +131,13 @@ def test_emitted_event_consumed_by_downstream() -> None:
         def flush(self):  # type: ignore[no-untyped-def]
             pass
 
-    llm = MagicMock(return_value={"title": "Lunch", "start_time": "s", "end_time": "e"})
+    llm = MagicMock(
+        return_value={
+            "title": "Lunch",
+            "start_time": "2024-01-01T12:00:00",
+            "end_time": "2024-01-01T13:00:00",
+        }
+    )
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer", return_value=MockProducer()), \
          patch("agents.sdk.base.start_http_server"):
@@ -204,10 +212,34 @@ def test_llm_request_exception(agent: tuple[CalendarNLPAgent, MagicMock]) -> Non
     agent_instance.emit.assert_not_called()
 
 
-def test_skips_emission_when_llm_missing_fields(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+def test_invalid_datetime_fields_skip_emission(
+    agent: tuple[CalendarNLPAgent, MagicMock]
+) -> None:
     agent_instance, llm = agent
-    llm.return_value = {"title": "Lunch"}
-    with patch("agents.calendar_nlp.check_permission", return_value=True):
+    llm.return_value = {
+        "title": "Lunch",
+        "start_time": "invalid",
+        "end_time": "2024-01-01T13:00:00",
+    }
+    with patch("agents.calendar_nlp.check_permission", return_value=True), \
+         patch("agents.calendar_nlp.logger") as mock_logger:
         agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
     llm.assert_called_once()
+    mock_logger.warning.assert_called_once()
+    agent_instance.emit.assert_not_called()
+
+
+def test_missing_datetime_fields_skip_emission(
+    agent: tuple[CalendarNLPAgent, MagicMock]
+) -> None:
+    agent_instance, llm = agent
+    llm.return_value = {
+        "title": "Lunch",
+        "start_time": "2024-01-01T12:00:00",
+    }
+    with patch("agents.calendar_nlp.check_permission", return_value=True), \
+         patch("agents.calendar_nlp.logger") as mock_logger:
+        agent_instance.handle_event({"user_id": "u1", "text": "Lunch"})
+    llm.assert_called_once()
+    mock_logger.warning.assert_called_once()
     agent_instance.emit.assert_not_called()

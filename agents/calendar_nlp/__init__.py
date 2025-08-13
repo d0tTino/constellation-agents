@@ -76,10 +76,16 @@ class CalendarNLPAgent(BaseAgent):
         if not title or not start_time or not end_time:
             logger.warning("Missing required fields in LLM result: %s", result)
             return
+        try:
+            start_dt = datetime.fromisoformat(start_time)
+            end_dt = datetime.fromisoformat(end_time)
+        except ValueError:
+            logger.warning("Invalid datetime format in LLM result: %s", result)
+            return
         calendar_event = {
             "title": title,
-            "start_time": start_time,
-            "end_time": end_time,
+            "start_time": start_dt.isoformat(),
+            "end_time": end_dt.isoformat(),
             "location": result.get("location"),
             "description": result.get("description"),
             "is_all_day": result.get("is_all_day"),
