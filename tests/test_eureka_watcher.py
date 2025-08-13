@@ -54,6 +54,31 @@ def test_watcher_ignores_dissimilar_doc() -> None:
         mock_emit.assert_not_called()
 
 
+def test_watcher_event_identifiers_override_defaults() -> None:
+    event = {
+        "id": "idea1",
+        "vector": [1.0, 0.0],
+        "user_id": "u2",
+        "group_id": "g1",
+    }
+    docs = {"docs": [{"id": "doc1", "vector": [1.0, 0.0]}]}
+    with (
+        patch("agents.eureka_watcher.ume_query", return_value=docs),
+        patch("agents.sdk.base.KafkaConsumer"),
+        patch("agents.sdk.base.KafkaProducer"),
+        patch("agents.sdk.base.start_http_server"),
+        patch.object(EurekaWatcher, "emit") as mock_emit,
+        patch("agents.eureka_watcher.check_permission", return_value=True) as cp,
+    ):
+        watcher = EurekaWatcher("http://example", user_id="u1", group_id="g0")
+        watcher.handle_event(event)
+        cp.assert_called_once_with("u2", "suggest", "g1")
+        mock_emit.assert_called_once()
+        _, kwargs = mock_emit.call_args
+        assert kwargs["user_id"] == "u2"
+        assert kwargs["group_id"] == "g1"
+
+
 def test_watcher_handles_none_response() -> None:
     event = {"id": "idea1", "vector": [1.0, 0.0]}
     with (
