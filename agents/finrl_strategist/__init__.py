@@ -72,14 +72,26 @@ class FinRLStrategist(BaseAgent):
         trained = agent.train_model(model)
         return agent.DRL_prediction(model=trained, environment=env)
 
-    def run_weekly(self) -> Any | None:
-        """Run ``backtest_last_30d`` every Monday and emit trade signals."""
+    def run_weekly(
+        self, *, user_id: str | None = None, group_id: str | None = None
+    ) -> Any | None:
+        """Run ``backtest_last_30d`` every Monday and emit trade signals.
+
+        ``user_id`` and ``group_id`` may be provided to override the defaults
+        from the constructor, allowing callers to specify the user context at
+        runtime. When omitted, the values from ``self.user_id`` and
+        ``self.group_id`` are used.
+        """
         today = date.today()
         if today.weekday() != 0:
             logger.info("FinRLStrategist: not Monday, skipping run")
             return None
-        if not check_permission(self.user_id, "trade", self.group_id):
-            logger.info("Permission denied for %s", self.user_id)
+
+        user_id = user_id or self.user_id
+        group_id = self.group_id if group_id is None else group_id
+
+        if not check_permission(user_id, "trade", group_id):
+            logger.info("Permission denied for %s", user_id)
             return None
         logger.info("Running FinRLStrategist backtest for %s", today.isoformat())
         result = self.backtest_last_30d(today)
@@ -89,18 +101,22 @@ class FinRLStrategist(BaseAgent):
                 topic = signals.get(action)
                 if topic:
                     payload = {"ticker": ticker}
-                    self.emit(
-                        topic,
-                        payload,
-                        user_id=self.user_id,
-                        group_id=self.group_id,
-                    )
+                    self.emit(topic, payload, user_id=user_id, group_id=group_id)
         self.producer.close()
         return result
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
-        """Consume schedule or trigger events to run backtests."""
-        self.run_weekly()
+        """Consume schedule or trigger events to run backtests.
+
+        ``user_id`` and ``group_id`` provided in the event take precedence over
+        the defaults supplied to the constructor, allowing callers to specify the
+        user context dynamically. Missing values fall back to the constructor
+        arguments.
+        """
+        self.run_weekly(
+            user_id=event.get("user_id", self.user_id),
+            group_id=event.get("group_id", self.group_id),
+        )
 
 
 async def main(config: Config | None = None) -> None:
