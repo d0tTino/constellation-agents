@@ -41,8 +41,13 @@ class ExplainabilityAgent(BaseAgent):
             logger.info("Permission denied for user %s", user_id)
             return
         try:
+            params = {"user_id": user_id}
+            if group_id:
+                params["group_id"] = group_id
             resp = requests.get(
-                f"{self.engine_url}/analysis/{analysis_id}/actions", timeout=10
+                f"{self.engine_url}/analysis/{analysis_id}/actions",
+                params=params,
+                timeout=10,
             )
             resp.raise_for_status()
             try:
