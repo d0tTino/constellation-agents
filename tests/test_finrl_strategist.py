@@ -91,3 +91,22 @@ def test_run_weekly_no_permission_emits_nothing():
         mock_producer.send.assert_not_called()
         mock_producer.flush.assert_not_called()
         mock_producer.close.assert_not_called()
+
+
+def test_handle_event_passes_user_context():
+    with patch("agents.sdk.base.KafkaConsumer"), patch(
+        "agents.sdk.base.KafkaProducer"
+    ), patch.object(FinRLStrategist, "run_weekly", autospec=True) as run_weekly:
+        strategist = FinRLStrategist(["SPY"], user_id="default", group_id="g-default")
+        event = {"user_id": "u-event", "group_id": "g-event"}
+        strategist.handle_event(event)
+        run_weekly.assert_called_once_with(strategist, user_id="u-event", group_id="g-event")
+
+
+def test_handle_event_falls_back_to_constructor_context():
+    with patch("agents.sdk.base.KafkaConsumer"), patch(
+        "agents.sdk.base.KafkaProducer"
+    ), patch.object(FinRLStrategist, "run_weekly", autospec=True) as run_weekly:
+        strategist = FinRLStrategist(["SPY"], user_id="u1", group_id="g1")
+        strategist.handle_event({})
+        run_weekly.assert_called_once_with(strategist, user_id="u1", group_id="g1")
