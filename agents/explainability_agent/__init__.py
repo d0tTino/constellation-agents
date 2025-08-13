@@ -5,6 +5,7 @@ import logging
 from typing import Any
 
 import requests
+import time
 
 from ..sdk import BaseAgent, check_permission
 from ..config import Config
@@ -40,23 +41,28 @@ class ExplainabilityAgent(BaseAgent):
         if not check_permission(user_id, "analysis:read", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
-        try:
-            params = {"user_id": user_id}
-            if group_id:
-                params["group_id"] = group_id
-            resp = requests.get(
-                f"{self.engine_url}/analysis/{analysis_id}/actions",
-                params=params,
-                timeout=10,
-            )
-            resp.raise_for_status()
+        params = {"user_id": user_id}
+        if group_id:
+            params["group_id"] = group_id
+        for attempt in range(3):
             try:
-                data = resp.json()
-            except ValueError as exc:
-                logger.error("Failed to parse JSON: %s", exc)
+                resp = requests.get(
+                    f"{self.engine_url}/analysis/{analysis_id}/actions",
+                    params=params,
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                break
+            except requests.RequestException as exc:
+                if attempt < 2:  # retry with exponential backoff
+                    time.sleep(2**attempt)
+                    continue
+                logger.error("Failed to fetch actions: %s", exc)
                 return
-        except requests.RequestException as exc:  # pragma: no cover - network errors
-            logger.error("Failed to fetch actions: %s", exc)
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            logger.error("Failed to parse JSON: %s", exc)
             return
         actions = data.get("actions", [])
         explanations = []

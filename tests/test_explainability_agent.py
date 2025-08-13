@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 import pytest
 import requests
@@ -153,12 +153,39 @@ def test_request_exception_logged(
          patch(
              "agents.explainability_agent.requests.get",
              side_effect=requests.RequestException("boom"),
-         ):
+         ) as mock_get, \
+         patch("agents.explainability_agent.time.sleep") as mock_sleep:
         with caplog.at_level(logging.ERROR):
             agent.handle_event(event)
+    assert mock_get.call_count == 3
+    mock_sleep.assert_has_calls([call(1), call(2)])
     assert "Failed to fetch actions" in caplog.text
     assert "boom" in caplog.text
     agent.emit.assert_not_called()
+
+
+def test_request_retries_then_succeeds(agent: ExplainabilityAgent) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    response = {
+        "actions": [
+            {"name": "invest", "pros": ["growth"], "cons": ["risk"]}
+        ]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    side_effects = [
+        requests.RequestException("boom1"),
+        requests.RequestException("boom2"),
+        mock_resp,
+    ]
+    with patch("agents.explainability_agent.check_permission", return_value=True), \
+         patch("agents.explainability_agent.requests.get", side_effect=side_effects) as mock_get, \
+         patch("agents.explainability_agent.time.sleep") as mock_sleep:
+        agent.handle_event(event)
+    assert mock_get.call_count == 3
+    mock_sleep.assert_has_calls([call(1), call(2)])
+    agent.emit.assert_called_once()
 
 
 def test_invalid_json_no_emit(
