@@ -17,6 +17,13 @@ def reset_metrics_started():
     base._METRICS_STARTED = set()
 
 
+@pytest.fixture(autouse=True)
+def clear_permission_cache():
+    sdk._PERMISSION_CACHE.clear()
+    yield
+    sdk._PERMISSION_CACHE.clear()
+
+
 def test_inject_identifiers_adds_ids_without_mutating_event():
     event = {"a": 1}
     result = base._inject_identifiers(event, user_id="u1", group_id="g1")
@@ -103,6 +110,26 @@ def test_check_permission_denied():
         mock_query.return_value = {"allow": False}
         assert sdk.check_permission("user1", "write", group_id="g1") is False
         mock_query.assert_called_once()
+
+
+def test_check_permission_cached():
+    with patch("agents.sdk.ume_query") as mock_query:
+        mock_query.return_value = {"allow": True}
+        assert sdk.check_permission("user1", "read") is True
+        assert sdk.check_permission("user1", "read") is True
+        assert mock_query.call_count == 1
+
+
+def test_check_permission_cache_expires(monkeypatch):
+    with patch("agents.sdk.ume_query") as mock_query:
+        mock_query.return_value = {"allow": True}
+        monkeypatch.setenv("PERMISSION_CACHE_TTL", "1")
+        times = [1000.0, 1000.5, 1002.0]
+        monkeypatch.setattr(sdk.time, "time", lambda: times.pop(0))
+        assert sdk.check_permission("user1", "read") is True
+        assert sdk.check_permission("user1", "read") is True
+        assert sdk.check_permission("user1", "read") is True
+        assert mock_query.call_count == 2
 
 
 def test_check_permission_network_error_returns_false():

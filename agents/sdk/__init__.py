@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from typing import Any
 
 import requests
@@ -23,6 +24,9 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+_PERMISSION_CACHE: dict[tuple[str, str, str | None], tuple[bool, float]] = {}
 
 
 def emit_event(
@@ -92,6 +96,16 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     sidecar as described in :func:`ume_query`.
     """
 
+    key = (user_id, action, group_id)
+    ttl = float(os.getenv("PERMISSION_CACHE_TTL", "60"))
+    now = time.time()
+    cached = _PERMISSION_CACHE.get(key)
+    if cached is not None:
+        allow, ts = cached
+        if now - ts < ttl:
+            return allow
+        del _PERMISSION_CACHE[key]
+
     endpoint = os.getenv(
         "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
     )
@@ -102,7 +116,9 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     if response is None:
         logger.error("Permission check failed due to network error")
         return False
-    return bool(response.get("allow"))
+    allow = bool(response.get("allow"))
+    _PERMISSION_CACHE[key] = (allow, now)
+    return allow
 
 
 __all__ = ["emit_event", "ume_query", "check_permission", "BaseAgent"]
