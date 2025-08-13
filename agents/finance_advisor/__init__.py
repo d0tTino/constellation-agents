@@ -6,6 +6,19 @@ from collections import deque
 from typing import Sequence, Any
 import math
 
+try:  # pragma: no cover - optional metrics dependency
+    from prometheus_client import Counter
+except ModuleNotFoundError:  # pragma: no cover - metrics library not installed
+    class _NullMetric:  # pylint: disable=too-few-public-methods
+        def labels(self, **kwargs):  # type: ignore[unused-argument]
+            return self
+
+        def inc(self, *args, **kwargs):  # type: ignore[unused-argument]
+            pass
+
+    def Counter(*args, **kwargs):  # type: ignore
+        return _NullMetric()
+
 from ..sdk import BaseAgent, check_permission
 from ..config import Config
 
@@ -13,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 READ_ACTION = "transactions:read"
 WRITE_ACTION = "transactions:write"
+
+PERMISSION_DENIED = Counter(
+    "agent_permission_denied_total",
+    "Number of permission denials",
+    ["agent", "action"],
+)
 
 
 def percentile(data: Sequence[float], p: float) -> float:
@@ -67,6 +86,9 @@ class FinanceAdvisor(BaseAgent):
         group_id = event.get("group_id")
         if not check_permission(user_id, READ_ACTION, group_id):
             logger.info("Permission denied for user %s", user_id)
+            PERMISSION_DENIED.labels(
+                agent=self.__class__.__name__, action=READ_ACTION
+            ).inc()
             return
         amount = event.get("amount")
         if amount is None:
@@ -79,6 +101,9 @@ class FinanceAdvisor(BaseAgent):
         if abs(score) > 3:
             if not check_permission(user_id, WRITE_ACTION, group_id):
                 logger.info("Write permission denied for user %s", user_id)
+                PERMISSION_DENIED.labels(
+                    agent=self.__class__.__name__, action=WRITE_ACTION
+                ).inc()
                 return
             payload = {"amount": amount_f, "z": score}
             self.emit(
