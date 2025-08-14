@@ -36,7 +36,10 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
     with patch("agents.explainability_agent.requests.get", return_value=mock_resp) as mock_get, \
          patch("agents.explainability_agent.check_permission", return_value=True) as mock_perm:
         agent.handle_event(event)
-    mock_perm.assert_called_once_with("user1", "analysis:read", None)
+    assert mock_perm.call_args_list == [
+        call("user1", "analysis:read", None),
+        call("user1", "analysis:write", None),
+    ]
     mock_get.assert_called_once_with(
         "http://engine/analysis/123/actions",
         params={"user_id": "user1"},
@@ -111,7 +114,10 @@ def test_group_id_propagates() -> None:
          patch("agents.explainability_agent.check_permission", return_value=True) as mock_perm:
         agent = ExplainabilityAgent("http://engine")
         agent.handle_event({"analysis_id": "123", "user_id": "u1", "group_id": "g1"})
-    mock_perm.assert_called_once_with("u1", "analysis:read", "g1")
+    assert mock_perm.call_args_list == [
+        call("u1", "analysis:read", "g1"),
+        call("u1", "analysis:write", "g1"),
+    ]
     mock_get.assert_called_once_with(
         "http://engine/analysis/123/actions",
         params={"user_id": "u1", "group_id": "g1"},
@@ -143,6 +149,23 @@ def test_permission_denied(agent: ExplainabilityAgent) -> None:
     mock_perm.assert_called_once_with("user1", "analysis:read", None)
     mock_get.assert_not_called()
     agent.emit.assert_not_called()
+
+
+def test_write_permission_denied(
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    with patch("agents.explainability_agent.check_permission", side_effect=[True, False]) as mock_perm, \
+         patch("agents.explainability_agent.requests.get") as mock_get, \
+         caplog.at_level(logging.INFO):
+        agent.handle_event(event)
+    assert mock_perm.call_args_list == [
+        call("user1", "analysis:read", None),
+        call("user1", "analysis:write", None),
+    ]
+    mock_get.assert_not_called()
+    agent.emit.assert_not_called()
+    assert "Write permission denied" in caplog.text
 
 
 def test_request_exception_logged(
