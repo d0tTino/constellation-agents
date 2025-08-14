@@ -39,6 +39,7 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
     assert mock_perm.call_args_list == [
         call("user1", "analysis:read", None),
         call("user1", "analysis:write", None),
+        call("user1", "analysis:write", None),
     ]
 
     mock_get.assert_called_once_with(
@@ -117,6 +118,7 @@ def test_group_id_propagates() -> None:
         agent.handle_event({"analysis_id": "123", "user_id": "u1", "group_id": "g1"})
     assert mock_perm.call_args_list == [
         call("u1", "analysis:read", "g1"),
+        call("u1", "analysis:write", "g1"),
         call("u1", "analysis:write", "g1"),
     ]
 
