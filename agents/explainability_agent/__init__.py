@@ -81,6 +81,9 @@ class ExplainabilityAgent(BaseAgent):
             pros = "; ".join(str(p) for p in pros_items if isinstance(p, str))
             cons = "; ".join(str(c) for c in cons_items if isinstance(c, str))
             explanations.append({"action": name, "pros": pros, "cons": cons})
+        if not check_permission(user_id, "analysis:write", group_id):
+            logger.info("Write permission denied for user %s", user_id)
+            return
         payload = {"analysis_id": analysis_id, "explanations": explanations}
         self.emit(
             "finance.explain.result",
