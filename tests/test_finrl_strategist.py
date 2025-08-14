@@ -16,6 +16,12 @@ class Monday(date):
         return cls(2024, 1, 1)
 
 
+class Tuesday(date):
+    @classmethod
+    def today(cls):
+        return cls(2024, 1, 2)
+
+
 def test_run_weekly_emits_signals():
     predictions = {"SPY": "buy", "AAPL": "sell"}
     with patch("agents.sdk.base.KafkaConsumer"), \
@@ -88,6 +94,28 @@ def test_run_weekly_no_permission_emits_nothing():
         assert result is None
         backtest.assert_not_called()
         mock_emit.assert_not_called()
+        mock_producer.send.assert_not_called()
+        mock_producer.flush.assert_not_called()
+        mock_producer.close.assert_not_called()
+
+
+def test_run_weekly_not_monday_emits_nothing():
+    with (
+        patch("agents.sdk.base.KafkaConsumer"),
+        patch("agents.sdk.base.KafkaProducer") as mock_producer_cls,
+        patch("agents.finrl_strategist.date", Tuesday),
+        patch.object(FinRLStrategist, "backtest_last_30d") as backtest,
+        patch.object(FinRLStrategist, "emit") as mock_emit,
+        patch("agents.finrl_strategist.check_permission") as cp,
+    ):
+        mock_producer = MagicMock()
+        mock_producer_cls.return_value = mock_producer
+        strategist = FinRLStrategist(["SPY"], user_id="u1")
+        result = strategist.run_weekly()
+        assert result is None
+        backtest.assert_not_called()
+        mock_emit.assert_not_called()
+        cp.assert_not_called()
         mock_producer.send.assert_not_called()
         mock_producer.flush.assert_not_called()
         mock_producer.close.assert_not_called()
