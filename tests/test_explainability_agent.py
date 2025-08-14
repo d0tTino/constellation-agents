@@ -40,6 +40,7 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
         call("user1", "analysis:read", None),
         call("user1", "analysis:write", None),
     ]
+
     mock_get.assert_called_once_with(
         "http://engine/analysis/123/actions",
         params={"user_id": "user1"},
@@ -118,6 +119,7 @@ def test_group_id_propagates() -> None:
         call("u1", "analysis:read", "g1"),
         call("u1", "analysis:write", "g1"),
     ]
+
     mock_get.assert_called_once_with(
         "http://engine/analysis/123/actions",
         params={"user_id": "u1", "group_id": "g1"},
