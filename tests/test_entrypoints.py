@@ -60,13 +60,18 @@ def test_finrl_strategist_entrypoint(tmp_path: Path) -> None:
     env = os.environ.copy()
     repo_root = Path(__file__).resolve().parents[1]
     env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), str(repo_root)])
-    result = subprocess.run(
-        [sys.executable, "-m", "agents.finrl_strategist"],
-        cwd=tmp_path,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    sys.path.insert(0, str(repo_root))
+    try:
+        with patch("agents.finrl_strategist.check_permission", return_value=True):
+            result = subprocess.run(
+                [sys.executable, "-m", "agents.finrl_strategist"],
+                cwd=tmp_path,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+    finally:
+        sys.path.remove(str(repo_root))
     assert result.returncode == 0, result.stderr
 
 

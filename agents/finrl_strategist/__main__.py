@@ -24,8 +24,6 @@ def entrypoint() -> None:
     cfg_path = Path(args.config)
     cfg = Config(cfg_path) if cfg_path.exists() else None
     import agents.finrl_strategist as module
-
-    module.check_permission = lambda *a, **k: True
     asyncio.run(main(cfg))
 
 
