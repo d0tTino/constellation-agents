@@ -52,7 +52,7 @@ class CalendarSync(BaseAgent):
                 response = requests.post(
                     self.cal_endpoint, json=payload, timeout=10
                 )
-            except Exception as exc:  # pragma: no cover - network errors
+            except requests.RequestException as exc:  # pragma: no cover - network errors
                 logger.error("Failed to sync to Cal.com: %s", exc)
                 return
             if 200 <= response.status_code < 300:

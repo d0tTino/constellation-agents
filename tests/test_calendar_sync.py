@@ -6,6 +6,7 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import requests
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -77,6 +78,21 @@ def test_handle_event_request_exception_logged_no_retry_no_emit(caplog):
     )
 
 
+
+
+def test_handle_event_non_request_exception_propagates():
+    with (
+        patch("agents.sdk.base.KafkaConsumer"),
+        patch("agents.sdk.base.KafkaProducer"),
+        patch("agents.sdk.base.start_http_server"),
+    ):
+        agent = CalendarSync("http://api")
+    with patch(
+        "agents.calendar_sync.requests.post",
+        side_effect=ValueError("boom"),
+    ), patch("agents.calendar_sync.check_permission", return_value=True):
+        with pytest.raises(ValueError):
+            agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
 def test_handle_event_permission_denied():
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
