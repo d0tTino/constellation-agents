@@ -32,7 +32,7 @@ def test_run_weekly_emits_signals():
         assert result == predictions
         assert mock_producer.send.call_count == 2
         assert mock_producer.flush.call_count == 2
-        mock_producer.close.assert_called_once()
+        mock_producer.close.assert_not_called()
         expected_emit_calls = [
             call(strategist, "BuySignal", {"ticker": "SPY"}, user_id="u1", group_id=None),
             call(strategist, "SellSignal", {"ticker": "AAPL"}, user_id="u1", group_id=None),
@@ -61,7 +61,7 @@ def test_run_weekly_emits_signals_with_group_id():
         assert result == predictions
         assert mock_producer.send.call_count == 2
         assert mock_producer.flush.call_count == 2
-        mock_producer.close.assert_called_once()
+        mock_producer.close.assert_not_called()
         expected_emit_calls = [
             call(strategist, "BuySignal", {"ticker": "SPY"}, user_id="u1", group_id="g1"),
             call(strategist, "SellSignal", {"ticker": "AAPL"}, user_id="u1", group_id="g1"),
@@ -70,6 +70,37 @@ def test_run_weekly_emits_signals_with_group_id():
         send_calls = [
             call("BuySignal", {"ticker": "SPY", "user_id": "u1", "group_id": "g1"}),
             call("SellSignal", {"ticker": "AAPL", "user_id": "u1", "group_id": "g1"}),
+        ]
+        assert mock_producer.send.call_args_list == send_calls
+
+
+def test_run_weekly_can_run_multiple_times():
+    predictions = {"SPY": "buy"}
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer") as mock_producer_cls, \
+         patch("agents.finrl_strategist.date", Monday), \
+         patch.object(FinRLStrategist, "backtest_last_30d", return_value=predictions), \
+         patch("agents.finrl_strategist.check_permission", return_value=True) as cp, \
+         patch.object(FinRLStrategist, "emit", wraps=FinRLStrategist.emit, autospec=True) as mock_emit:
+        mock_producer = MagicMock()
+        mock_producer_cls.return_value = mock_producer
+        strategist = FinRLStrategist(["SPY"], user_id="u1")
+        result1 = strategist.run_weekly()
+        result2 = strategist.run_weekly()
+        assert result1 == predictions
+        assert result2 == predictions
+        assert cp.call_count == 2
+        assert mock_producer.send.call_count == 2
+        assert mock_producer.flush.call_count == 2
+        mock_producer.close.assert_not_called()
+        expected_emit_calls = [
+            call(strategist, "BuySignal", {"ticker": "SPY"}, user_id="u1", group_id=None),
+            call(strategist, "BuySignal", {"ticker": "SPY"}, user_id="u1", group_id=None),
+        ]
+        assert mock_emit.call_args_list == expected_emit_calls
+        send_calls = [
+            call("BuySignal", {"ticker": "SPY", "user_id": "u1"}),
+            call("BuySignal", {"ticker": "SPY", "user_id": "u1"}),
         ]
         assert mock_producer.send.call_args_list == send_calls
 
