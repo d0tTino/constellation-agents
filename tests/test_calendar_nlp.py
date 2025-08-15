@@ -14,8 +14,8 @@ from agents.calendar_nlp import CalendarNLPAgent
 def agent() -> tuple[CalendarNLPAgent, MagicMock]:
     llm = MagicMock(return_value={
         "title": "Lunch",
-        "start_time": "2024-01-01T12:00:00",
-        "end_time": "2024-01-01T13:00:00",
+        "start_time": "2024-01-01T12:00:00+00:00",
+        "end_time": "2024-01-01T13:00:00+00:00",
         "location": "Cafe",
         "description": "Lunch with Sam",
         "is_all_day": False,
@@ -47,8 +47,8 @@ def test_parses_and_emits_event(agent: tuple[CalendarNLPAgent, MagicMock]) -> No
     kwargs = agent_instance.emit.call_args[1]
     assert topic == "calendar.event.create_request"
     assert payload["event"]["title"] == "Lunch"
-    assert payload["event"]["start_time"] == "2024-01-01T12:00:00"
-    assert payload["event"]["end_time"] == "2024-01-01T13:00:00"
+    assert payload["event"]["start_time"] == "2024-01-01T12:00:00+00:00"
+    assert payload["event"]["end_time"] == "2024-01-01T13:00:00+00:00"
     assert payload["user_id"] == "u1"
     assert "group_id" not in payload
     assert kwargs["user_id"] == "u1"
@@ -134,8 +134,8 @@ def test_emitted_event_consumed_by_downstream() -> None:
     llm = MagicMock(
         return_value={
             "title": "Lunch",
-            "start_time": "2024-01-01T12:00:00",
-            "end_time": "2024-01-01T13:00:00",
+            "start_time": "2024-01-01T12:00:00+00:00",
+            "end_time": "2024-01-01T13:00:00+00:00",
         }
     )
     with patch("agents.sdk.base.KafkaConsumer"), \
@@ -177,8 +177,8 @@ def test_permission_denied(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
 def test_uses_default_timezone_when_missing() -> None:
     llm = MagicMock(return_value={
         "title": "Lunch",
-        "start_time": "2024-01-01T12:00:00",
-        "end_time": "2024-01-01T13:00:00",
+        "start_time": "2024-01-01T12:00:00+00:00",
+        "end_time": "2024-01-01T13:00:00+00:00",
         "location": "Cafe",
         "description": "Lunch with Sam",
         "is_all_day": False,
@@ -200,6 +200,17 @@ def test_uses_default_timezone_when_missing() -> None:
     assert payload["current_datetime"].endswith("+00:00")
 
 
+def test_rejects_naive_llm_datetimes(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    llm.return_value["start_time"] = "2024-01-01T12:00:00"
+    llm.return_value["end_time"] = "2024-01-01T13:00:00"
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event(event)
+    llm.assert_called_once()
+    agent_instance.emit.assert_not_called()
+
+
 def test_llm_request_exception(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
     llm.side_effect = requests.RequestException("boom")
@@ -219,7 +230,7 @@ def test_invalid_datetime_fields_skip_emission(
     llm.return_value = {
         "title": "Lunch",
         "start_time": "invalid",
-        "end_time": "2024-01-01T13:00:00",
+        "end_time": "2024-01-01T13:00:00+00:00",
     }
     with patch("agents.calendar_nlp.check_permission", return_value=True), \
          patch("agents.calendar_nlp.logger") as mock_logger:
@@ -235,7 +246,7 @@ def test_missing_datetime_fields_skip_emission(
     agent_instance, llm = agent
     llm.return_value = {
         "title": "Lunch",
-        "start_time": "2024-01-01T12:00:00",
+        "start_time": "2024-01-01T12:00:00+00:00",
     }
     with patch("agents.calendar_nlp.check_permission", return_value=True), \
          patch("agents.calendar_nlp.logger") as mock_logger:

@@ -82,6 +82,9 @@ class CalendarNLPAgent(BaseAgent):
         except ValueError:
             logger.warning("Invalid datetime format in LLM result: %s", result)
             return
+        if start_dt.utcoffset() is None or end_dt.utcoffset() is None:
+            logger.warning("Naive datetime in LLM result: %s", result)
+            return
         calendar_event = {
             "title": title,
             "start_time": start_dt.isoformat(),
