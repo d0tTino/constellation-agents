@@ -108,3 +108,12 @@ def test_handle_event_permission_denied(agent: PlaidSync) -> None:
     cp.assert_called_once_with("u1", READ_ACTION, "g1")
     agent.plaid.fetch_transactions.assert_not_called()
     agent.emit.assert_not_called()
+
+
+def test_handle_event_missing_user_id(agent: PlaidSync) -> None:
+    event = {"group_id": "g1"}
+    with patch("agents.plaid_sync.check_permission") as cp:
+        agent.handle_event(event)
+    cp.assert_not_called()
+    agent.plaid.fetch_transactions.assert_not_called()
+    agent.emit.assert_not_called()
