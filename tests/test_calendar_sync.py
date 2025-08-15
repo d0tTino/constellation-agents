@@ -51,6 +51,32 @@ def test_handle_event_retries_on_failure(caplog):
     )
 
 
+def test_handle_event_request_exception_logged_no_retry_no_emit(caplog):
+    with patch("agents.sdk.base.KafkaConsumer"), \
+         patch("agents.sdk.base.KafkaProducer"), \
+         patch("agents.sdk.base.start_http_server"):
+        agent = CalendarSync("http://api")
+    agent.emit = MagicMock()
+    with patch(
+        "agents.calendar_sync.requests.post",
+        side_effect=requests.RequestException("boom"),
+    ) as mock_post, \
+        patch("agents.calendar_sync.time.sleep") as mock_sleep, \
+        patch("agents.calendar_sync.check_permission", return_value=True):
+        with caplog.at_level(logging.ERROR):
+            agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
+    mock_post.assert_called_once_with(
+        "http://api",
+        json={"id": "1", "time": "t", "user_id": "u1"},
+        timeout=10,
+    )
+    mock_sleep.assert_not_called()
+    agent.emit.assert_not_called()
+    assert any(
+        "Failed to sync to Cal.com" in record.message for record in caplog.records
+    )
+
+
 def test_handle_event_permission_denied():
     with patch("agents.sdk.base.KafkaConsumer"), \
          patch("agents.sdk.base.KafkaProducer"), \
