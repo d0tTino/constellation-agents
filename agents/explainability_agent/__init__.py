@@ -41,9 +41,6 @@ class ExplainabilityAgent(BaseAgent):
         if not check_permission(user_id, "analysis:read", group_id):
             logger.info("Permission denied for user %s", user_id)
             return
-        if not check_permission(user_id, "analysis:write", group_id):
-            logger.info("Write permission denied for user %s", user_id)
-            return
         params = {"user_id": user_id}
         if group_id:
             params["group_id"] = group_id

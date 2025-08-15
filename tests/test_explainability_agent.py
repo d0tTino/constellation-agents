@@ -39,7 +39,6 @@ def test_explainability_agent_emits(agent: ExplainabilityAgent) -> None:
     assert mock_perm.call_args_list == [
         call("user1", "analysis:read", None),
         call("user1", "analysis:write", None),
-        call("user1", "analysis:write", None),
     ]
 
     mock_get.assert_called_once_with(
@@ -119,7 +118,6 @@ def test_group_id_propagates() -> None:
     assert mock_perm.call_args_list == [
         call("u1", "analysis:read", "g1"),
         call("u1", "analysis:write", "g1"),
-        call("u1", "analysis:write", "g1"),
     ]
 
     mock_get.assert_called_once_with(
@@ -156,24 +154,36 @@ def test_permission_denied(agent: ExplainabilityAgent) -> None:
 
 
 def test_write_permission_denied(
-    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture,
 ) -> None:
     event = {"analysis_id": "123", "user_id": "user1"}
-    with patch("agents.explainability_agent.check_permission", side_effect=[True, False]) as mock_perm, \
-         patch("agents.explainability_agent.requests.get") as mock_get, \
-         caplog.at_level(logging.INFO):
+    response = {
+        "actions": [{"name": "invest", "pros": ["growth"], "cons": ["risk"]}]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    with patch(
+        "agents.explainability_agent.check_permission", side_effect=[True, False]
+    ) as mock_perm, patch(
+        "agents.explainability_agent.requests.get", return_value=mock_resp
+    ) as mock_get, caplog.at_level(logging.INFO):
         agent.handle_event(event)
     assert mock_perm.call_args_list == [
         call("user1", "analysis:read", None),
         call("user1", "analysis:write", None),
     ]
-    mock_get.assert_not_called()
+    mock_get.assert_called_once_with(
+        "http://engine/analysis/123/actions",
+        params={"user_id": "user1"},
+        timeout=10,
+    )
     agent.emit.assert_not_called()
     assert "Write permission denied" in caplog.text
 
 
 def test_write_permission_denied_after_fetch(
-    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture,
 ) -> None:
     event = {"analysis_id": "123", "user_id": "user1"}
     response = {
@@ -184,14 +194,13 @@ def test_write_permission_denied_after_fetch(
     mock_resp.raise_for_status.return_value = None
     with patch(
         "agents.explainability_agent.check_permission",
-        side_effect=[True, True, False],
+        side_effect=[True, False],
     ) as mock_perm, patch(
         "agents.explainability_agent.requests.get", return_value=mock_resp
     ) as mock_get, caplog.at_level(logging.INFO):
         agent.handle_event(event)
     assert mock_perm.call_args_list == [
         call("user1", "analysis:read", None),
-        call("user1", "analysis:write", None),
         call("user1", "analysis:write", None),
     ]
     mock_get.assert_called_once_with(
