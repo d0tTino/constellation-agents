@@ -73,6 +73,26 @@ def test_run_emits_metrics(tmp_path):
     )
 
 
+def test_run_exits_without_emitting_when_permission_denied(tmp_path):
+    cfg_file = tmp_path / "cfg.toml"
+    strat_file = tmp_path / "strategy.yaml"
+    strat_file.write_text("exchange: binance\n")
+    cfg_file.write_text(f"[crypto_bot]\nstrategy = '{strat_file}'\n")
+
+    bot = CryptoBot(Config(cfg_file), user_id="u1")
+    with patch.object(bot, "load_strategy") as load, patch.object(bot, "connect_exchange") as connect, patch.object(
+        bot, "init_engine"
+    ) as init, patch("agents.crypto_bot.emit_event") as emit, patch(
+        "agents.crypto_bot.check_permission", return_value=False
+    ) as cp:
+        bot.run()
+    cp.assert_called_once_with("u1", "trade", None)
+    load.assert_not_called()
+    connect.assert_not_called()
+    init.assert_not_called()
+    emit.assert_not_called()
+
+
 def test_run_calls_stop_on_error(tmp_path):
     cfg_file = tmp_path / "cfg.toml"
     strat_file = tmp_path / "strategy.yaml"
