@@ -102,7 +102,6 @@ class FinRLStrategist(BaseAgent):
                 if topic:
                     payload = {"ticker": ticker}
                     self.emit(topic, payload, user_id=user_id, group_id=group_id)
-        self.producer.close()
         return result
 
     def handle_event(self, event: dict[str, Any]) -> None:  # type: ignore[override]
@@ -118,6 +117,11 @@ class FinRLStrategist(BaseAgent):
             group_id=event.get("group_id", self.group_id),
         )
 
+    def shutdown(self) -> None:
+        """Close Kafka connections and release resources."""
+        self.consumer.close()
+        self.producer.close()
+
 
 async def main(config: Config | None = None) -> None:
     section = config.get("finrl_strategist", {}) if config else {}
@@ -131,7 +135,10 @@ async def main(config: Config | None = None) -> None:
         group_id=group_id,
         bootstrap_servers=bootstrap,
     )
-    await asyncio.to_thread(strategist.run)
+    try:
+        await asyncio.to_thread(strategist.run)
+    finally:
+        strategist.shutdown()
 
 
 __all__ = ["FinRLStrategist", "main"]
