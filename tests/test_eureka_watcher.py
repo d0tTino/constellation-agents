@@ -95,3 +95,21 @@ def test_watcher_handles_none_response() -> None:
         cp.assert_called_once_with("u1", "suggest", None)
         mock_emit.assert_not_called()
         mock_logger.error.assert_called_once()
+
+
+def test_watcher_skips_emit_without_permission() -> None:
+    """Watcher should not emit events when permission is denied."""
+    event = {"id": "idea1", "vector": [1.0, 0.0]}
+    with (
+        patch("agents.eureka_watcher.ume_query") as mock_query,
+        patch("agents.sdk.base.KafkaConsumer"),
+        patch("agents.sdk.base.KafkaProducer"),
+        patch("agents.sdk.base.start_http_server"),
+        patch.object(EurekaWatcher, "emit") as mock_emit,
+        patch("agents.eureka_watcher.check_permission", return_value=False) as cp,
+    ):
+        watcher = EurekaWatcher("http://example", user_id="u1")
+        watcher.handle_event(event)
+        cp.assert_called_once_with("u1", "suggest", None)
+        mock_query.assert_not_called()
+        mock_emit.assert_not_called()
