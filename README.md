@@ -200,6 +200,9 @@ All events emitted by agents must include the initiating `user_id` and, when app
 | ----- | ----------- | ----------- | -------------------- |
 | `calendar.nl.request` | client applications | CalendarNLPAgent | `user_id`, `text`, `group_id` (optional) |
 | `calendar.event.create_request` | CalendarNLPAgent | calendar service | `user_id`, `group_id` (optional), event fields |
+| `calendar.event.created` | calendar service | clients | `user_id`, `group_id` (optional), event fields |
+| `finance.decision.request` | clients | decision service | `user_id`, `analysis_id`, `group_id` (optional) |
+| `finance.decision.result` | decision service | clients | `user_id`, `group_id` (optional), `analysis_id`, decision fields |
 | `finance.explain.request` | analytics service | ExplainabilityAgent | `user_id`, `analysis_id` |
 | `finance.explain.result` | ExplainabilityAgent | clients | `user_id`, `group_id` (optional), `analysis_id` |
 | `plaid.transactions.sync` | scheduler | PlaidSyncAgent | `user_id`, `group_id` (optional) |
