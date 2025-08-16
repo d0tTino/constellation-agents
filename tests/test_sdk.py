@@ -161,6 +161,32 @@ def test_check_permission_concurrent():
     assert mock_query.call_count == 1
 
 
+def test_check_permission_concurrent_calls(monkeypatch):
+    results: list[bool] = []
+
+    def slow_query(*args, **kwargs):
+        time.sleep(0.1)
+        return {"allow": True}
+
+    with patch("agents.sdk.ume_query", side_effect=slow_query) as mock_query:
+        threads = [
+            threading.Thread(
+                target=lambda: results.append(
+                    sdk.check_permission("user1", "read")
+                )
+            )
+            for _ in range(5)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert len(results) == 5
+    assert all(results)
+    assert mock_query.call_count == 1
+
+
 def test_check_permission_network_error_returns_false():
     with patch("agents.sdk.requests.post", side_effect=requests.RequestException):
         assert sdk.check_permission("user1", "read") is False

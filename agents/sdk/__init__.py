@@ -101,6 +101,14 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     key = (user_id, action, group_id)
     ttl = float(os.getenv("PERMISSION_CACHE_TTL", "60"))
     now = time.time()
+
+    endpoint = os.getenv(
+        "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
+    )
+    payload: dict[str, Any] = {"user_id": user_id, "action": action}
+    if group_id is not None:
+        payload["group_id"] = group_id
+
     with _PERMISSION_CACHE_LOCK:
         cached = _PERMISSION_CACHE.get(key)
         if cached is not None:
@@ -109,12 +117,6 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
                 return allow
             del _PERMISSION_CACHE[key]
 
-        endpoint = os.getenv(
-            "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
-        )
-        payload: dict[str, Any] = {"user_id": user_id, "action": action}
-        if group_id is not None:
-            payload["group_id"] = group_id
         response = ume_query(endpoint, payload)
         if response is None:
             logger.error("Permission check failed due to network error")
