@@ -301,6 +301,66 @@ def test_invalid_entries_skipped(agent: ExplainabilityAgent) -> None:
          patch("agents.explainability_agent.check_permission", return_value=True):
         agent.handle_event(event)
     payload = agent.emit.call_args[0][1]
-    assert len(payload["explanations"]) == 1
-    assert payload["explanations"][0]["action"] == "invest"
+    assert len(payload["explanations"]) == 3
+    actions = [exp["action"] for exp in payload["explanations"]]
+    assert actions == ["invest", "Unnamed action", "Unnamed action"]
+
+
+def test_malformed_response_non_dict(
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = ["not", "a", "dict"]
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True), \
+         caplog.at_level(logging.ERROR):
+        agent.handle_event(event)
+    assert "Invalid response schema" in caplog.text
+    agent.emit.assert_not_called()
+
+
+def test_malformed_response_actions_not_list(
+    agent: ExplainabilityAgent, caplog: pytest.LogCaptureFixture
+) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = {"actions": "oops"}
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True), \
+         caplog.at_level(logging.ERROR):
+        agent.handle_event(event)
+    assert "Invalid response schema" in caplog.text
+    agent.emit.assert_not_called()
+
+
+def test_multi_action_explanations(agent: ExplainabilityAgent) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    response = {
+        "actions": [
+            {
+                "name": "invest",
+                "pros": ["growth", "income"],
+                "cons": ["risk"],
+            },
+            {"pros": ["safety"]},
+        ]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True):
+        agent.handle_event(event)
+    payload = agent.emit.call_args[0][1]
+    assert len(payload["explanations"]) == 2
+    first = payload["explanations"][0]
+    assert first["pros"] == "- growth\n- income"
+    assert first["cons"] == "- risk"
+    second = payload["explanations"][1]
+    assert second["action"] == "Unnamed action"
+    assert second["pros"] == "- safety"
+    assert second["cons"] == ""
 

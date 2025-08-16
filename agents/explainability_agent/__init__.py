@@ -64,22 +64,32 @@ class ExplainabilityAgent(BaseAgent):
         except ValueError as exc:
             logger.error("Failed to parse JSON: %s", exc)
             return
-        actions = data.get("actions", [])
+        if not isinstance(data, dict):
+            logger.error("Invalid response schema: %s", data)
+            return
+        actions = data.get("actions")
+        if not isinstance(actions, list):
+            logger.error("Invalid response schema: 'actions' missing or not a list")
+            return
+
+        def _format_items(items: list[Any]) -> str:
+            return "\n".join(f"- {i}" for i in items if isinstance(i, str))
+
         explanations = []
         for action in actions:
             if not isinstance(action, dict):
                 continue
             name = action.get("name")
             if not isinstance(name, str):
-                continue
+                name = "Unnamed action"
             pros_items = action.get("pros")
             if not isinstance(pros_items, list):
                 pros_items = []
             cons_items = action.get("cons")
             if not isinstance(cons_items, list):
                 cons_items = []
-            pros = "; ".join(str(p) for p in pros_items if isinstance(p, str))
-            cons = "; ".join(str(c) for c in cons_items if isinstance(c, str))
+            pros = _format_items(pros_items)
+            cons = _format_items(cons_items)
             explanations.append({"action": name, "pros": pros, "cons": cons})
         # Verify write permissions before emitting the result
         if not check_permission(user_id, "analysis:write", group_id):
