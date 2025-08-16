@@ -32,9 +32,9 @@ def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
         order.append(("cp", action))
         return True
 
-    def fetch_side_effect(user: str) -> list[dict[str, str]]:
+    def fetch_side_effect(user: str) -> list[dict[str, str | int]]:
         order.append(("fetch", ""))
-        return [{"id": "t1"}]
+        return [{"id": "t1", "amount": 100, "account_id": "a1"}]
 
     agent.plaid.fetch_transactions.side_effect = fetch_side_effect
     with patch("agents.plaid_sync.check_permission", side_effect=cp_side_effect) as cp:
@@ -51,6 +51,8 @@ def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
     assert topic == "plaid.transaction.synced"
     assert kwargs["user_id"] == "u1"
     assert kwargs["group_id"] == "g1"
+    assert payload["amount"] == 100
+    assert payload["account_id"] == "a1"
     assert "user_id" not in payload
     assert "group_id" not in payload
 
