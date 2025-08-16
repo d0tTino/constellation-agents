@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+import threading
 from typing import Any
 
 import requests
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 _PERMISSION_CACHE: dict[tuple[str, str, str | None], tuple[bool, float]] = {}
+_PERMISSION_CACHE_LOCK = threading.Lock()
 
 
 def emit_event(
@@ -99,26 +101,27 @@ def check_permission(user_id: str, action: str, group_id: str | None = None) -> 
     key = (user_id, action, group_id)
     ttl = float(os.getenv("PERMISSION_CACHE_TTL", "60"))
     now = time.time()
-    cached = _PERMISSION_CACHE.get(key)
-    if cached is not None:
-        allow, ts = cached
-        if now - ts < ttl:
-            return allow
-        del _PERMISSION_CACHE[key]
+    with _PERMISSION_CACHE_LOCK:
+        cached = _PERMISSION_CACHE.get(key)
+        if cached is not None:
+            allow, ts = cached
+            if now - ts < ttl:
+                return allow
+            del _PERMISSION_CACHE[key]
 
-    endpoint = os.getenv(
-        "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
-    )
-    payload: dict[str, Any] = {"user_id": user_id, "action": action}
-    if group_id is not None:
-        payload["group_id"] = group_id
-    response = ume_query(endpoint, payload)
-    if response is None:
-        logger.error("Permission check failed due to network error")
-        return False
-    allow = bool(response.get("allow"))
-    _PERMISSION_CACHE[key] = (allow, now)
-    return allow
+        endpoint = os.getenv(
+            "UME_PERMISSION_ENDPOINT", "http://localhost:8000/permissions/check"
+        )
+        payload: dict[str, Any] = {"user_id": user_id, "action": action}
+        if group_id is not None:
+            payload["group_id"] = group_id
+        response = ume_query(endpoint, payload)
+        if response is None:
+            logger.error("Permission check failed due to network error")
+            return False
+        allow = bool(response.get("allow"))
+        _PERMISSION_CACHE[key] = (allow, now)
+        return allow
 
 
 __all__ = ["emit_event", "ume_query", "check_permission", "BaseAgent"]
