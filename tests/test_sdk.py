@@ -1,6 +1,8 @@
 from unittest.mock import ANY, MagicMock, patch, call
 import pytest
 import requests
+import threading
+import time
 import sys
 from pathlib import Path
 
@@ -19,9 +21,11 @@ def reset_metrics_started():
 
 @pytest.fixture(autouse=True)
 def clear_permission_cache():
-    sdk._PERMISSION_CACHE.clear()
+    with sdk._PERMISSION_CACHE_LOCK:
+        sdk._PERMISSION_CACHE.clear()
     yield
-    sdk._PERMISSION_CACHE.clear()
+    with sdk._PERMISSION_CACHE_LOCK:
+        sdk._PERMISSION_CACHE.clear()
 
 
 def test_inject_identifiers_adds_ids_without_mutating_event():
@@ -130,6 +134,31 @@ def test_check_permission_cache_expires(monkeypatch):
         assert sdk.check_permission("user1", "read") is True
         assert sdk.check_permission("user1", "read") is True
         assert mock_query.call_count == 2
+
+
+def test_check_permission_concurrent():
+    barrier = threading.Barrier(5)
+
+    def slow_query(*args, **kwargs):
+        time.sleep(0.1)
+        return {"allow": True}
+
+    results: list[bool] = []
+
+    def worker():
+        barrier.wait()
+        results.append(sdk.check_permission("user1", "read"))
+
+    with patch("agents.sdk.ume_query", side_effect=slow_query) as mock_query:
+        threads = [threading.Thread(target=worker) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+    assert len(results) == 5
+    assert all(results)
+    assert mock_query.call_count == 1
 
 
 def test_check_permission_network_error_returns_false():
