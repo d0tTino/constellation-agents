@@ -269,7 +269,7 @@ def test_missing_datetime_fields_skip_emission(
 
 def test_normalizes_recurrence(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
     agent_instance, llm = agent
-    llm.return_value["recurrence"] = "weekly"
+    llm.return_value["recurrence"] = "  weekly  "
     event = {"user_id": "u1", "text": "Lunch"}
     with patch("agents.calendar_nlp.check_permission", return_value=True):
         agent_instance.handle_event(event)

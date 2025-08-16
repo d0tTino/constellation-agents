@@ -13,6 +13,9 @@ import requests
 from ..config import Config
 from ..sdk import BaseAgent, check_permission
 
+
+SUPPORTED_RECURRENCES = {"DAILY", "WEEKLY", "MONTHLY", "YEARLY"}
+
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +85,12 @@ class CalendarNLPAgent(BaseAgent):
         except ValueError:
             logger.warning("Invalid datetime format in LLM result: %s", result)
             return
-        if start_dt.utcoffset() is None or end_dt.utcoffset() is None:
+        if (
+            start_dt.tzinfo is None
+            or start_dt.tzinfo.utcoffset(start_dt) is None
+            or end_dt.tzinfo is None
+            or end_dt.tzinfo.utcoffset(end_dt) is None
+        ):
             logger.warning("Naive datetime in LLM result: %s", result)
             return
         if end_dt <= start_dt:
@@ -94,12 +102,7 @@ class CalendarNLPAgent(BaseAgent):
         normalized_recurrence: str | None = None
         if recurrence:
             normalized_recurrence = str(recurrence).strip().upper()
-            if normalized_recurrence not in {
-                "DAILY",
-                "WEEKLY",
-                "MONTHLY",
-                "YEARLY",
-            }:
+            if normalized_recurrence not in SUPPORTED_RECURRENCES:
                 logger.warning(
                     "Unsupported recurrence format in LLM result: %s", recurrence
                 )
