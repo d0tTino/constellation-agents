@@ -85,9 +85,10 @@ class PlaidSync(BaseAgent):
             logger.exception("Failed to fetch transactions for %s", user_id)
             return []
         for tx in transactions:
+            payload = tx.copy()
             self.emit(
                 "plaid.transaction.synced",
-                tx,
+                payload,
                 user_id=user_id,
                 group_id=group_id,
             )

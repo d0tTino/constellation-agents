@@ -51,8 +51,7 @@ def test_permission_checks_and_event_emission(agent: PlaidSync) -> None:
     assert topic == "plaid.transaction.synced"
     assert kwargs["user_id"] == "u1"
     assert kwargs["group_id"] == "g1"
-    assert payload["amount"] == 100
-    assert payload["account_id"] == "a1"
+    assert payload == {"id": "t1", "amount": 100, "account_id": "a1"}
     assert "user_id" not in payload
     assert "group_id" not in payload
 
