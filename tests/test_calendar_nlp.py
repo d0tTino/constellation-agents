@@ -209,6 +209,17 @@ def test_rejects_naive_llm_datetimes(agent: tuple[CalendarNLPAgent, MagicMock]) 
         agent_instance.handle_event(event)
     llm.assert_called_once()
     agent_instance.emit.assert_not_called()
+    agent_instance.producer.send.assert_not_called()
+
+def test_rejects_end_before_start(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    llm.return_value["start_time"] = "2024-01-01T13:00:00+00:00"
+    llm.return_value["end_time"] = "2024-01-01T12:00:00+00:00"
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event(event)
+    llm.assert_called_once()
+    agent_instance.emit.assert_not_called()
 
 
 def test_llm_request_exception(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
@@ -254,3 +265,30 @@ def test_missing_datetime_fields_skip_emission(
     llm.assert_called_once()
     mock_logger.warning.assert_called_once()
     agent_instance.emit.assert_not_called()
+
+
+def test_normalizes_recurrence(agent: tuple[CalendarNLPAgent, MagicMock]) -> None:
+    agent_instance, llm = agent
+    llm.return_value["recurrence"] = "weekly"
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event(event)
+    llm.assert_called_once()
+    agent_instance.emit.assert_called_once()
+    agent_instance.producer.send.assert_called_once()
+    topic, payload = agent_instance.producer.send.call_args[0]
+    assert topic == "calendar.event.create_request"
+    assert payload["event"]["recurrence"] == "WEEKLY"
+
+
+def test_rejects_unsupported_recurrence(
+    agent: tuple[CalendarNLPAgent, MagicMock]
+) -> None:
+    agent_instance, llm = agent
+    llm.return_value["recurrence"] = "biweekly"
+    event = {"user_id": "u1", "text": "Lunch"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True):
+        agent_instance.handle_event(event)
+    llm.assert_called_once()
+    agent_instance.emit.assert_not_called()
+    agent_instance.producer.send.assert_not_called()
