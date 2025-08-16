@@ -51,7 +51,7 @@ def test_crypto_bot_entrypoint(tmp_path: Path) -> None:
 def test_finrl_strategist_entrypoint(tmp_path: Path) -> None:
     (tmp_path / "kafka").mkdir()
     (tmp_path / "kafka" / "__init__.py").write_text(
-        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n" "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n    def close(self):\n        pass\n" "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
     )
     (tmp_path / "prometheus_client").mkdir()
     (tmp_path / "prometheus_client" / "__init__.py").write_text(
@@ -105,7 +105,7 @@ def test_eureka_watcher_entrypoint(tmp_path: Path) -> None:
 def test_calendar_nlp_entrypoint(tmp_path: Path) -> None:
     (tmp_path / "kafka").mkdir()
     (tmp_path / "kafka" / "__init__.py").write_text(
-        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n"
+        "class KafkaConsumer:\n    def __init__(self,*a,**k):\n        pass\n    def __iter__(self):\n        return iter([])\n    def close(self):\n        pass\n"
         "class KafkaProducer:\n    def __init__(self,*a,**k):\n        pass\n    def send(self,*a,**k):\n        pass\n    def flush(self):\n        pass\n    def close(self):\n        pass\n"
     )
     (tmp_path / "prometheus_client").mkdir()

@@ -85,6 +85,25 @@ class CalendarNLPAgent(BaseAgent):
         if start_dt.utcoffset() is None or end_dt.utcoffset() is None:
             logger.warning("Naive datetime in LLM result: %s", result)
             return
+        if end_dt <= start_dt:
+            logger.warning(
+                "End time %s is not after start time %s", end_dt, start_dt
+            )
+            return
+        recurrence = result.get("recurrence")
+        normalized_recurrence: str | None = None
+        if recurrence:
+            normalized_recurrence = str(recurrence).strip().upper()
+            if normalized_recurrence not in {
+                "DAILY",
+                "WEEKLY",
+                "MONTHLY",
+                "YEARLY",
+            }:
+                logger.warning(
+                    "Unsupported recurrence format in LLM result: %s", recurrence
+                )
+                return
         calendar_event = {
             "title": title,
             "start_time": start_dt.isoformat(),
@@ -92,7 +111,7 @@ class CalendarNLPAgent(BaseAgent):
             "location": result.get("location"),
             "description": result.get("description"),
             "is_all_day": result.get("is_all_day"),
-            "recurrence": result.get("recurrence"),
+            "recurrence": normalized_recurrence,
         }
         self.emit(
             "calendar.event.create_request",
