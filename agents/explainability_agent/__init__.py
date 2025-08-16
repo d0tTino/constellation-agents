@@ -78,9 +78,10 @@ class ExplainabilityAgent(BaseAgent):
         explanations = []
         for action in actions:
             if not isinstance(action, dict):
+                logger.error("Invalid action entry: %s", action)
                 continue
             name = action.get("name")
-            if not isinstance(name, str):
+            if not isinstance(name, str) or not name:
                 name = "Unnamed action"
             pros_items = action.get("pros")
             if not isinstance(pros_items, list):
@@ -95,7 +96,10 @@ class ExplainabilityAgent(BaseAgent):
         if not check_permission(user_id, "analysis:write", group_id):
             logger.info("Write permission denied for user %s", user_id)
             return
+        summary_lines = [f"- {exp['action']}" for exp in explanations]
         payload = {"analysis_id": analysis_id, "explanations": explanations}
+        if len(summary_lines) > 1:
+            payload["summary"] = "\n".join(summary_lines)
         self.emit(
             "finance.explain.result",
             payload,

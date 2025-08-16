@@ -363,4 +363,18 @@ def test_multi_action_explanations(agent: ExplainabilityAgent) -> None:
     assert second["action"] == "Unnamed action"
     assert second["pros"] == "- safety"
     assert second["cons"] == ""
+    assert payload["summary"] == "- invest\n- Unnamed action"
+
+
+def test_summary_not_included_for_single_action(agent: ExplainabilityAgent) -> None:
+    event = {"analysis_id": "123", "user_id": "user1"}
+    response = {"actions": [{"name": "invest", "pros": ["growth"], "cons": ["risk"]}]}
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = response
+    mock_resp.raise_for_status.return_value = None
+    with patch("agents.explainability_agent.requests.get", return_value=mock_resp), \
+         patch("agents.explainability_agent.check_permission", return_value=True):
+        agent.handle_event(event)
+    payload = agent.emit.call_args[0][1]
+    assert "summary" not in payload
 
