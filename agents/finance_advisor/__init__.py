@@ -98,20 +98,21 @@ class FinanceAdvisor(BaseAgent):
         score = percentile_zscore(self.amounts, amount_f)
         self.amounts.append(amount_f)
         logger.info("Transaction %s has z-score %.2f", amount_f, score)
-        if abs(score) > 3:
-            if not check_permission(user_id, WRITE_ACTION, group_id):
-                logger.info("Write permission denied for user %s", user_id)
-                PERMISSION_DENIED.labels(
-                    agent=self.__class__.__name__, action=WRITE_ACTION
-                ).inc()
-                return
-            payload = {"amount": amount_f, "z": score}
-            self.emit(
-                "ume.events.transaction.anomaly",
-                payload,
-                user_id=user_id,
-                group_id=group_id,
-            )
+        if abs(score) <= 3:
+            return
+        if not check_permission(user_id, WRITE_ACTION, group_id):
+            logger.info("Write permission denied for user %s", user_id)
+            PERMISSION_DENIED.labels(
+                agent=self.__class__.__name__, action=WRITE_ACTION
+            ).inc()
+            return
+        payload = {"amount": amount_f, "z": score}
+        self.emit(
+            "ume.events.transaction.anomaly",
+            payload,
+            user_id=user_id,
+            group_id=group_id,
+        )
 
 
 async def main(config: Config | None = None) -> None:
