@@ -151,6 +151,50 @@ if not check_permission(user_id, "analysis:read"):
 
 All emitted events must include the originating `user_id` and optionally a `group_id`.
 
+## DecisionService
+
+Processes decision requests for financial analyses.
+
+**Topics**
+
+- Consumes: `finance.decision.request`
+- Produces: `finance.decision.result`
+
+**Payloads**
+
+- Incoming `finance.decision.request`
+
+  ```json
+  {"analysis_id": "a1", "decision": {"action": "buy"}, "user_id": "u1", "group_id": "g1"}
+  ```
+
+- Outgoing `finance.decision.result`
+
+  ```json
+  {
+    "analysis_id": "a1",
+    "decision": {"action": "buy"},
+    "user_id": "u1",
+    "group_id": "g1"
+  }
+  ```
+
+**Permission model**
+
+```python
+from agents.sdk import check_permission
+
+if check_permission(user_id, "analysis:decision", group_id):
+    agent.emit(
+        "finance.decision.result",
+        {"analysis_id": analysis_id, "decision": decision},
+        user_id=user_id,
+        group_id=group_id,
+    )
+```
+
+All emitted events must include the originating `user_id` and optionally a `group_id`.
+
 ## PlaidSyncAgent
 
 Synchronizes transactions from Plaid and emits updates.
