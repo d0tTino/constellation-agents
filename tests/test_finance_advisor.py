@@ -180,6 +180,51 @@ def test_write_permission_denied(advisor: tuple[FinanceAdvisor, MagicMock]) -> N
     agent.emit.assert_not_called()
 
 
+def test_read_and_write_permission_denied(
+    advisor: tuple[FinanceAdvisor, MagicMock]
+) -> None:
+    agent, _ = advisor
+    registry = CollectorRegistry()
+    counter = Counter(
+        "agent_permission_denied_total",
+        "desc",
+        ["agent", "action"],
+        registry=registry,
+    )
+    first_read = True
+
+    def perm_side_effect(user_id, action, group_id):  # noqa: ANN001
+        nonlocal first_read
+        if action == READ_ACTION and first_read:
+            first_read = False
+            return False
+        return action != WRITE_ACTION
+
+    with (
+        patch("agents.finance_advisor.PERMISSION_DENIED", counter),
+        patch("agents.finance_advisor.check_permission", side_effect=perm_side_effect) as cp,
+        patch("agents.finance_advisor.percentile_zscore", return_value=10),
+    ):
+        agent.handle_event({"amount": 10, "user_id": "u1"})
+        agent.handle_event({"amount": 20, "user_id": "u1"})
+    assert cp.call_args_list == [
+        call("u1", READ_ACTION, None),
+        call("u1", READ_ACTION, None),
+        call("u1", WRITE_ACTION, None),
+    ]
+    val_read = registry.get_sample_value(
+        "agent_permission_denied_total",
+        {"agent": "FinanceAdvisor", "action": READ_ACTION},
+    )
+    val_write = registry.get_sample_value(
+        "agent_permission_denied_total",
+        {"agent": "FinanceAdvisor", "action": WRITE_ACTION},
+    )
+    assert val_read == 1.0
+    assert val_write == 1.0
+    agent.emit.assert_not_called()
+
+
 def test_history_cap(advisor: tuple[FinanceAdvisor, MagicMock]) -> None:
     agent, _ = advisor
     with patch("agents.finance_advisor.check_permission", return_value=True):
