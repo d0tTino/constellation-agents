@@ -22,7 +22,7 @@ def test_handle_event_posts_to_cal():
          patch("agents.calendar_sync.check_permission", return_value=True) as cp:
         mock_post.return_value.status_code = 200
         agent.handle_event({"id": "1", "time": "t", "user_id": "u1", "group_id": "g1"})
-        cp.assert_called_once_with("u1", "read", "g1")
+        cp.assert_called_once_with("u1", "calendar:read", "g1")
         mock_post.assert_called_once_with(
             "http://api",
             json={"id": "1", "time": "t", "user_id": "u1", "group_id": "g1"},
@@ -101,7 +101,7 @@ def test_handle_event_permission_denied():
     with patch("agents.calendar_sync.check_permission", return_value=False) as cp, \
          patch("agents.calendar_sync.requests.post") as mock_post:
         agent.handle_event({"id": "1", "time": "t", "user_id": "u1"})
-    cp.assert_called_once_with("u1", "read", None)
+    cp.assert_called_once_with("u1", "calendar:read", None)
     mock_post.assert_not_called()
 
 
@@ -113,7 +113,7 @@ def test_handle_cal_event_emits_task_reschedule():
     agent.emit = MagicMock()
     with patch("agents.calendar_sync.check_permission", return_value=True) as cp:
         agent.handle_cal_event({"id": "2", "time": "t", "user_id": "u1", "group_id": "g1"})
-    cp.assert_called_once_with("u1", "write", "g1")
+    cp.assert_called_once_with("u1", "calendar:write", "g1")
     agent.emit.assert_called_once()
     topic, payload = agent.emit.call_args[0]
     kwargs = agent.emit.call_args[1]
@@ -131,7 +131,7 @@ def test_handle_cal_event_permission_denied():
     agent.emit = MagicMock()
     with patch("agents.calendar_sync.check_permission", return_value=False) as cp:
         agent.handle_cal_event({"id": "2", "time": "t", "user_id": "u1"})
-    cp.assert_called_once_with("u1", "write", None)
+    cp.assert_called_once_with("u1", "calendar:write", None)
     agent.emit.assert_not_called()
 
 
