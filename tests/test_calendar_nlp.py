@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
@@ -282,13 +283,32 @@ def test_normalizes_recurrence(agent: tuple[CalendarNLPAgent, MagicMock]) -> Non
 
 
 def test_rejects_unsupported_recurrence(
-    agent: tuple[CalendarNLPAgent, MagicMock]
+    agent: tuple[CalendarNLPAgent, MagicMock],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     agent_instance, llm = agent
     llm.return_value["recurrence"] = "biweekly"
     event = {"user_id": "u1", "text": "Lunch"}
-    with patch("agents.calendar_nlp.check_permission", return_value=True):
+    with patch("agents.calendar_nlp.check_permission", return_value=True), caplog.at_level(
+        logging.WARNING
+    ):
         agent_instance.handle_event(event)
     llm.assert_called_once()
     agent_instance.emit.assert_not_called()
     agent_instance.producer.send.assert_not_called()
+    assert "Unsupported recurrence format" in caplog.text
+
+
+def test_relative_date_without_timezone_logs_warning(
+    agent: tuple[CalendarNLPAgent, MagicMock], caplog: pytest.LogCaptureFixture
+) -> None:
+    agent_instance, llm = agent
+    llm.return_value["start_time"] = "2024-01-01T12:00:00"
+    llm.return_value["end_time"] = "2024-01-01T13:00:00"
+    event = {"user_id": "u1", "text": "Meet tomorrow"}
+    with patch("agents.calendar_nlp.check_permission", return_value=True), caplog.at_level(
+        logging.WARNING
+    ):
+        agent_instance.handle_event(event)
+    agent_instance.emit.assert_not_called()
+    assert "Naive datetime in LLM result" in caplog.text
