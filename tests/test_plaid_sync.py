@@ -104,9 +104,31 @@ def test_fetch_transactions_error(agent: PlaidSync) -> None:
 
 def test_handle_event_permission_denied(agent: PlaidSync) -> None:
     event = {"user_id": "u1", "group_id": "g1"}
-    with patch("agents.plaid_sync.check_permission", return_value=False) as cp:
+    metric = MagicMock()
+    with patch("agents.plaid_sync.PERMISSION_DENIALS", metric), patch(
+        "agents.plaid_sync.check_permission", return_value=False
+    ) as cp:
         agent.handle_event(event)
     cp.assert_called_once_with("u1", READ_ACTION, "g1")
+    metric.labels.assert_called_once_with(action="read")
+    metric.labels.return_value.inc.assert_called_once_with()
+    agent.plaid.fetch_transactions.assert_not_called()
+    agent.emit.assert_not_called()
+
+
+def test_handle_event_write_permission_denied(agent: PlaidSync) -> None:
+    event = {"user_id": "u1", "group_id": "g1"}
+    metric = MagicMock()
+    with patch("agents.plaid_sync.PERMISSION_DENIALS", metric), patch(
+        "agents.plaid_sync.check_permission", side_effect=[True, False]
+    ) as cp:
+        agent.handle_event(event)
+    assert cp.call_args_list == [
+        (("u1", READ_ACTION, "g1"),),
+        (("u1", WRITE_ACTION, "g1"),),
+    ]
+    metric.labels.assert_called_once_with(action="write")
+    metric.labels.return_value.inc.assert_called_once_with()
     agent.plaid.fetch_transactions.assert_not_called()
     agent.emit.assert_not_called()
 
